@@ -1,8 +1,8 @@
 
-import TradingSimulator from '@/components/TradingSimulator';
+import CryptoStrategySimulator from '@/components/CryptoStrategySimulator';
 
 const Index = () => {
-  return <TradingSimulator />;
+  return <CryptoStrategySimulator />;
 };
 
 export default Index;
