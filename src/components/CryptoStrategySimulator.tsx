@@ -1,10 +1,12 @@
-
 import React, { useState } from 'react';
 import TradingChart from './TradingChart';
 import CryptoPairSelector from './CryptoPairSelector';
 import StrategyControls from './StrategyControls';
 import SimulationStats from './SimulationStats';
 import TimeframeSelector from './TimeframeSelector';
+import ReplayControls from './ReplayControls';
+import { useReplayMode } from '../hooks/useReplayMode';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export interface Trade {
   id: string;
@@ -26,6 +28,7 @@ export interface SimulationData {
 const CryptoStrategySimulator = () => {
   const [selectedPair, setSelectedPair] = useState('BTCUSDT');
   const [timeframe, setTimeframe] = useState('1');
+  const [activeTab, setActiveTab] = useState('strategy');
   const [simulationData, setSimulationData] = useState<SimulationData>({
     trades: [],
     totalOperations: 0,
@@ -34,6 +37,15 @@ const CryptoStrategySimulator = () => {
     finalBalance: 10000,
     isRunning: false
   });
+
+  const {
+    replayState,
+    startReplay,
+    pauseReplay,
+    stopReplay,
+    resetReplay,
+    setOnCandleUpdate,
+  } = useReplayMode();
 
   const handleStartStrategy = () => {
     console.log('Iniciando estratégia NTSL para', selectedPair);
@@ -98,14 +110,38 @@ const CryptoStrategySimulator = () => {
         </div>
       </div>
 
-      {/* Strategy Controls */}
+      {/* Tabs para alternar entre Estratégia e Replay */}
       <div className="p-4 border-b border-border">
-        <StrategyControls 
-          onStart={handleStartStrategy}
-          onStop={handleStopStrategy}
-          onReset={handleResetStrategy}
-          isRunning={simulationData.isRunning}
-        />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-muted">
+            <TabsTrigger value="strategy" className="data-[state=active]:bg-background">
+              Estratégia NTSL
+            </TabsTrigger>
+            <TabsTrigger value="replay" className="data-[state=active]:bg-background">
+              Modo Replay
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="strategy" className="mt-4">
+            <StrategyControls 
+              onStart={handleStartStrategy}
+              onStop={handleStopStrategy}
+              onReset={handleResetStrategy}
+              isRunning={simulationData.isRunning}
+            />
+          </TabsContent>
+          
+          <TabsContent value="replay" className="mt-4">
+            <ReplayControls
+              onStartReplay={startReplay}
+              onPauseReplay={pauseReplay}
+              onStopReplay={stopReplay}
+              onResetReplay={resetReplay}
+              isPlaying={replayState.isPlaying}
+              isPaused={replayState.isPaused}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Trading Chart */}
@@ -114,12 +150,42 @@ const CryptoStrategySimulator = () => {
           symbol={selectedPair}
           interval={timeframe}
           trades={simulationData.trades}
+          replayMode={activeTab === 'replay'}
+          onCandleUpdate={setOnCandleUpdate}
         />
       </div>
 
       {/* Simulation Statistics */}
       <div className="p-4">
-        <SimulationStats data={simulationData} />
+        {activeTab === 'strategy' ? (
+          <SimulationStats data={simulationData} />
+        ) : (
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-2">Status do Replay</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Candles Processados:</span>
+                <p className="font-mono text-lg">{replayState.currentIndex}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Total de Candles:</span>
+                <p className="font-mono text-lg">{replayState.data.length}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Velocidade:</span>
+                <p className="font-mono text-lg">{replayState.speed}x</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Progresso:</span>
+                <p className="font-mono text-lg">
+                  {replayState.data.length > 0 
+                    ? Math.round((replayState.currentIndex / replayState.data.length) * 100)
+                    : 0}%
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
