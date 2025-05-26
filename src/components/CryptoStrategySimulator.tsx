@@ -43,7 +43,8 @@ const CryptoStrategySimulator = () => {
     stopReplay,
     resetReplay,
     changeSpeed,
-    setOnCandleUpdate
+    setOnCandleUpdate,
+    generateNewScenario
   } = useReplaySystem();
 
   return (
@@ -106,12 +107,15 @@ const CryptoStrategySimulator = () => {
               onStopReplay={stopReplay}
               onResetReplay={resetReplay}
               onSpeedChange={changeSpeed}
+              onGenerateNewScenario={generateNewScenario}
               isPlaying={replayState.isPlaying}
               isPaused={replayState.isPaused}
               currentSpeed={replayState.speed}
               progress={replayState.progress}
               totalCandles={replayState.totalCandles}
               currentIndex={replayState.currentIndex}
+              marketSentiment={replayState.marketSentiment}
+              marketPhase={replayState.marketPhase}
             />
 
             {/* Gráfico Principal */}

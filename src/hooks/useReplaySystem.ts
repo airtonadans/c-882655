@@ -1,6 +1,5 @@
-
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { MarketDataGenerator, CandleData } from '../utils/marketDataGenerator';
+import { AdvancedMarketGenerator, CandleData } from '../utils/advancedMarketGenerator';
 
 export interface ReplaySystemState {
   isActive: boolean;
@@ -12,6 +11,8 @@ export interface ReplaySystemState {
   progress: number;
   currentCandle: CandleData | null;
   totalCandles: number;
+  marketSentiment: string;
+  marketPhase: string;
 }
 
 export const useReplaySystem = () => {
@@ -24,28 +25,66 @@ export const useReplaySystem = () => {
     speed: 1,
     progress: 0,
     currentCandle: null,
-    totalCandles: 0
+    totalCandles: 0,
+    marketSentiment: 'sideways',
+    marketPhase: 'opening'
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const onUpdateRef = useRef<((candle: CandleData) => void) | null>(null);
-  const generatorRef = useRef<MarketDataGenerator>(new MarketDataGenerator());
+  const generatorRef = useRef<AdvancedMarketGenerator>(new AdvancedMarketGenerator());
 
   const calculateInterval = (speed: number) => {
     return Math.max(50, 1000 / speed);
   };
 
-  const startReplay = useCallback((startDate: string, endDate: string, speed: number) => {
-    console.log('Iniciando replay avançado:', { startDate, endDate, speed });
+  const generateNewScenario = useCallback(() => {
+    console.log('Gerando novo cenário de mercado...');
     
-    // Gerar dados sintéticos realistas
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const syntheticData = generatorRef.current.generateCandleSequence(start, end, 60);
+    // Parar qualquer replay em andamento
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    // Gerar novo cenário
+    generatorRef.current.generateNewScenario();
+    const newData = generatorRef.current.generateTradingSession(5); // 5 minutos por candle
+    
+    setState(prev => ({
+      ...prev,
+      isActive: false,
+      isPlaying: false,
+      isPaused: false,
+      currentIndex: 0,
+      data: newData,
+      totalCandles: newData.length,
+      currentCandle: newData[0] || null,
+      progress: 0,
+      marketSentiment: generatorRef.current.getCurrentSentiment(),
+      marketPhase: generatorRef.current.getCurrentPhase()
+    }));
+    
+    console.log(`Novo cenário gerado com ${newData.length} candles`);
+    console.log(`Sentimento: ${generatorRef.current.getCurrentSentiment()}`);
+    console.log(`Fase: ${generatorRef.current.getCurrentPhase()}`);
+  }, []);
 
-    if (syntheticData.length === 0) {
-      console.log('Erro ao gerar dados sintéticos');
-      return;
+  const startReplay = useCallback((speed: number) => {
+    console.log('Iniciando replay com velocidade:', speed);
+    
+    // Se não há dados, gerar novo cenário primeiro
+    if (state.data.length === 0) {
+      console.log('Gerando cenário antes de iniciar replay...');
+      const newData = generatorRef.current.generateTradingSession(5);
+      setState(prev => ({
+        ...prev,
+        data: newData,
+        totalCandles: newData.length,
+        currentCandle: newData[0] || null,
+        marketSentiment: generatorRef.current.getCurrentSentiment(),
+        marketPhase: generatorRef.current.getCurrentPhase()
+      }));
     }
 
     setState(prev => ({
@@ -53,22 +92,20 @@ export const useReplaySystem = () => {
       isActive: true,
       isPlaying: true,
       isPaused: false,
-      currentIndex: 0,
-      data: syntheticData,
       speed,
-      totalCandles: syntheticData.length,
-      currentCandle: syntheticData[0] || null,
-      progress: 0
+      currentIndex: prev.currentIndex || 0
     }));
 
     // Iniciar reprodução
-    let currentIndex = 0;
+    let currentIndex = state.currentIndex || 0;
+    const dataToUse = state.data.length > 0 ? state.data : generatorRef.current.generateTradingSession(5);
+    
     intervalRef.current = setInterval(() => {
       currentIndex++;
       
-      if (currentIndex < syntheticData.length) {
-        const currentCandle = syntheticData[currentIndex];
-        const progress = (currentIndex / syntheticData.length) * 100;
+      if (currentIndex < dataToUse.length) {
+        const currentCandle = dataToUse[currentIndex];
+        const progress = (currentIndex / dataToUse.length) * 100;
         
         setState(prev => ({
           ...prev,
@@ -96,7 +133,7 @@ export const useReplaySystem = () => {
         console.log('Replay concluído');
       }
     }, calculateInterval(speed));
-  }, []);
+  }, [state.data, state.currentIndex]);
 
   const pauseReplay = useCallback(() => {
     if (intervalRef.current) {
@@ -178,7 +215,9 @@ export const useReplaySystem = () => {
       speed: 1,
       progress: 0,
       currentCandle: null,
-      totalCandles: 0
+      totalCandles: 0,
+      marketSentiment: 'sideways',
+      marketPhase: 'opening'
     });
   }, []);
 
@@ -262,6 +301,7 @@ export const useReplaySystem = () => {
     resetReplay,
     changeSpeed,
     jumpToPosition,
-    setOnCandleUpdate
+    setOnCandleUpdate,
+    generateNewScenario
   };
 };
