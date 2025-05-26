@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Bar } from 'recharts';
+import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Activity, Minus } from 'lucide-react';
@@ -13,71 +13,99 @@ interface ProfessionalCandleChartProps {
   isActive: boolean;
 }
 
-interface CandleBarProps {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  payload?: CandleData;
+interface CandleProps {
+  data: CandleData[];
+  xScale: any;
+  yScale: any;
+  width: number;
+  height: number;
 }
 
-const CandleBar: React.FC<CandleBarProps> = ({ x = 0, y = 0, width = 0, height = 0, payload }) => {
-  if (!payload || !payload.open || !payload.close || !payload.high || !payload.low) {
-    return null;
-  }
+const CandleChart: React.FC<CandleProps> = ({ data, xScale, yScale, width, height }) => {
+  if (!data || data.length === 0) return null;
 
-  const { open, close, high, low } = payload;
-  const isBullish = close > open;
-  const color = isBullish ? '#0ECB81' : '#F6465D'; // Cores estilo Binance
-  
-  const maxPrice = Math.max(high, low, open, close);
-  const minPrice = Math.min(high, low, open, close);
-  const priceRange = maxPrice - minPrice || 0.01;
-  
-  const bodyHeight = Math.abs(close - open) / priceRange * height;
-  const bodyTop = y + ((maxPrice - Math.max(open, close)) / priceRange * height);
-  
-  const wickTop = y + ((maxPrice - high) / priceRange * height);
-  const wickBottom = y + ((maxPrice - low) / priceRange * height);
-  
-  const wickX = x + width / 2;
-  const bodyWidth = Math.max(width * 0.8, 2);
-  const bodyX = x + (width - bodyWidth) / 2;
+  const candleWidth = Math.max(width / data.length * 0.7, 3);
 
   return (
     <g>
-      {/* Mecha superior */}
-      <line
-        x1={wickX}
-        y1={wickTop}
-        x2={wickX}
-        y2={bodyTop}
-        stroke={color}
-        strokeWidth={1}
-      />
-      
-      {/* Corpo da vela */}
-      <rect
-        x={bodyX}
-        y={bodyTop}
-        width={bodyWidth}
-        height={Math.max(bodyHeight, 1)}
-        fill={isBullish ? color : 'transparent'}
-        stroke={color}
-        strokeWidth={1.5}
-        rx={0.5}
-      />
-      
-      {/* Mecha inferior */}
-      <line
-        x1={wickX}
-        y1={bodyTop + bodyHeight}
-        x2={wickX}
-        y2={wickBottom}
-        stroke={color}
-        strokeWidth={1}
-      />
+      {data.map((candle, index) => {
+        const x = xScale(index);
+        const centerX = x + (width / data.length) / 2;
+        
+        const yHigh = yScale(candle.high);
+        const yLow = yScale(candle.low);
+        const yOpen = yScale(candle.open);
+        const yClose = yScale(candle.close);
+        
+        const isBullish = candle.close >= candle.open;
+        const color = isBullish ? '#0ECB81' : '#F6465D';
+        
+        const bodyTop = Math.min(yOpen, yClose);
+        const bodyHeight = Math.abs(yClose - yOpen);
+        
+        return (
+          <g key={index}>
+            {/* Sombra superior */}
+            <line
+              x1={centerX}
+              y1={yHigh}
+              x2={centerX}
+              y2={bodyTop}
+              stroke={color}
+              strokeWidth={1}
+            />
+            
+            {/* Corpo do candle */}
+            <rect
+              x={centerX - candleWidth / 2}
+              y={bodyTop}
+              width={candleWidth}
+              height={Math.max(bodyHeight, 1)}
+              fill={isBullish ? color : 'transparent'}
+              stroke={color}
+              strokeWidth={1}
+            />
+            
+            {/* Sombra inferior */}
+            <line
+              x1={centerX}
+              y1={bodyTop + bodyHeight}
+              x2={centerX}
+              y2={yLow}
+              stroke={color}
+              strokeWidth={1}
+            />
+          </g>
+        );
+      })}
     </g>
+  );
+};
+
+const CustomChart = ({ data }: { data: CandleData[] }) => {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="1 1" stroke="#374151" opacity={0.3} />
+        <XAxis 
+          dataKey="time"
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: '#9CA3AF' }}
+          tickFormatter={(value) => new Date(value * 1000).toLocaleDateString('pt-BR')}
+        />
+        <YAxis 
+          domain={['dataMin - 200', 'dataMax + 200']}
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: '#9CA3AF' }}
+          tickFormatter={(value) => `$${value.toFixed(0)}`}
+          width={60}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <CandleChart />
+      </ComposedChart>
+    </ResponsiveContainer>
   );
 };
 
@@ -238,35 +266,7 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
       {/* Gráfico otimizado para mobile */}
       <div className="h-[400px] w-full">
         {visibleData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart 
-              data={visibleData} 
-              margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
-            >
-              <CartesianGrid 
-                strokeDasharray="1 1" 
-                stroke="#374151" 
-                opacity={0.3}
-              />
-              <XAxis 
-                dataKey="time"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                tickFormatter={(value) => new Date(value * 1000).toLocaleDateString('pt-BR')}
-              />
-              <YAxis 
-                domain={['dataMin - 200', 'dataMax + 200']}
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                tickFormatter={(value) => `$${value.toFixed(0)}`}
-                width={60}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="open" shape={<CandleBar />} />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <CustomChart data={visibleData} />
         ) : (
           <div className="h-full flex items-center justify-center bg-gray-800 rounded-lg">
             <div className="text-center">
