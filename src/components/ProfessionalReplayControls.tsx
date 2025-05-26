@@ -53,7 +53,7 @@ const ProfessionalReplayControls: React.FC<ProfessionalReplayControlsProps> = ({
   const getStatusColor = () => {
     if (isPlaying && !isPaused) return 'bg-green-500';
     if (isPaused) return 'bg-yellow-500';
-    return 'bg-gray-500';
+    return 'bg-gray-600';
   };
 
   const getStatusText = () => {
@@ -63,105 +63,107 @@ const ProfessionalReplayControls: React.FC<ProfessionalReplayControlsProps> = ({
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-slate-200 dark:border-slate-700">
-      <div className="space-y-6">
-        {/* Header */}
+    <Card className="p-4 bg-gray-900 border-gray-700 text-white">
+      <div className="space-y-4">
+        {/* Header com status compacto para mobile */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-yellow-500 rounded-md">
+              <TrendingUp className="w-4 h-4 text-black" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Simulador de Mercado
+              <h3 className="text-sm font-semibold text-gray-100">
+                Simulador Replay
               </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Modo Replay Avançado
+              <p className="text-xs text-gray-400">
+                BTCUSDT
               </p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${getStatusColor()} animate-pulse`} />
-            <Badge variant={isPlaying && !isPaused ? "default" : "secondary"}>
+            <Badge 
+              variant={isPlaying && !isPaused ? "default" : "secondary"}
+              className={`text-xs ${isPlaying && !isPaused ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+            >
               {getStatusText()}
             </Badge>
           </div>
         </div>
 
-        {/* Configuração de Período */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="startDate" className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="w-4 h-4" />
-              Data de Início
+        {/* Configuração de Período - Layout mobile */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="startDate" className="flex items-center gap-1 text-xs font-medium text-gray-300">
+              <Calendar className="w-3 h-3" />
+              Início
             </Label>
             <Input
               id="startDate"
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-white dark:bg-slate-800"
+              className="bg-gray-800 border-gray-600 text-white text-xs h-8"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="endDate" className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="w-4 h-4" />
-              Data de Fim
+          <div className="space-y-1">
+            <Label htmlFor="endDate" className="flex items-center gap-1 text-xs font-medium text-gray-300">
+              <Calendar className="w-3 h-3" />
+              Fim
             </Label>
             <Input
               id="endDate"
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-white dark:bg-slate-800"
+              className="bg-gray-800 border-gray-600 text-white text-xs h-8"
             />
           </div>
         </div>
 
         {/* Controle de Velocidade */}
-        <div className="space-y-3">
-          <Label className="flex items-center gap-2 text-sm font-medium">
-            <Clock className="w-4 h-4" />
-            Velocidade de Simulação: {speed}x
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1 text-xs font-medium text-gray-300">
+            <Clock className="w-3 h-3" />
+            Velocidade: {speed}x
           </Label>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Slider
               value={[speed]}
               min={1}
               max={20}
               step={1}
               onValueChange={handleSpeedChange}
-              className="w-full"
+              className="w-full [&>span[role=slider]]:bg-yellow-500 [&>span[role=slider]]:border-yellow-400 [&>[data-orientation=horizontal]]:bg-gray-700"
             />
-            <div className="flex justify-between text-xs text-slate-500">
-              <span>1x (Normal)</span>
-              <span>5x</span>
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>1x</span>
               <span>10x</span>
-              <span>20x (Rápido)</span>
+              <span>20x</span>
             </div>
           </div>
         </div>
 
-        {/* Controles de Reprodução */}
-        <div className="flex gap-3">
+        {/* Controles de Reprodução - Otimizado para mobile */}
+        <div className="grid grid-cols-4 gap-2">
           <Button
             onClick={handleStartReplay}
             disabled={isPlaying && !isPaused}
-            className="flex-1 h-12"
-            size="lg"
+            className="col-span-2 h-10 bg-green-600 hover:bg-green-700 text-white font-medium text-sm"
+            size="sm"
           >
-            <Play className="w-4 h-4 mr-2" />
-            {isPlaying && !isPaused ? 'Executando...' : 'Iniciar Simulação'}
+            <Play className="w-4 h-4 mr-1" />
+            {isPlaying && !isPaused ? 'Executando' : 'Iniciar'}
           </Button>
 
           <Button
             onClick={onPauseReplay}
             disabled={!isPlaying}
             variant="outline"
-            size="lg"
-            className="h-12 px-6"
+            size="sm"
+            className="h-10 border-gray-600 bg-gray-800 hover:bg-gray-700 text-white"
           >
             <Pause className="w-4 h-4" />
           </Button>
@@ -170,34 +172,35 @@ const ProfessionalReplayControls: React.FC<ProfessionalReplayControlsProps> = ({
             onClick={onStopReplay}
             disabled={!isPlaying}
             variant="outline"
-            size="lg"
-            className="h-12 px-6"
+            size="sm"
+            className="h-10 border-gray-600 bg-gray-800 hover:bg-gray-700 text-white"
           >
             <Square className="w-4 h-4" />
           </Button>
-
-          <Button
-            onClick={onResetReplay}
-            variant="outline"
-            size="lg"
-            className="h-12 px-6"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </Button>
         </div>
+
+        <Button
+          onClick={onResetReplay}
+          variant="outline"
+          size="sm"
+          className="w-full h-9 border-gray-600 bg-gray-800 hover:bg-gray-700 text-gray-300"
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Reiniciar
+        </Button>
 
         {/* Barra de Progresso */}
         {totalCandles > 0 && (
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-600 dark:text-slate-400">Progresso da Simulação</span>
-              <span className="font-mono text-slate-900 dark:text-slate-100">
-                {currentIndex} / {totalCandles} candles ({progress.toFixed(1)}%)
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400">Progresso</span>
+              <span className="font-mono text-yellow-400">
+                {currentIndex} / {totalCandles} ({progress.toFixed(1)}%)
               </span>
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+            <div className="w-full bg-gray-700 rounded-full h-2">
               <div 
-                className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>

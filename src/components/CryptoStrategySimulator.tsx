@@ -6,7 +6,7 @@ import { useReplaySystem } from '../hooks/useReplaySystem';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Activity, BarChart3 } from 'lucide-react';
+import { TrendingUp, Activity, BarChart3, Zap } from 'lucide-react';
 
 export interface Trade {
   id: string;
@@ -47,50 +47,50 @@ const CryptoStrategySimulator = () => {
   } = useReplaySystem();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Header Profissional */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-gray-950">
+      {/* Header estilo Binance - Otimizado para mobile */}
+      <div className="bg-gray-900 border-b border-gray-800 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl">
-                <TrendingUp className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-yellow-500 to-yellow-400 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-black" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  Simulador Profissional de Trading
+                <h1 className="text-lg font-bold text-white">
+                  Trading Simulator
                 </h1>
-                <p className="text-slate-600 dark:text-slate-400">
-                  Sistema Avançado de Análise e Replay de Mercado
+                <p className="text-xs text-gray-400">
+                  Sistema Profissional de Replay
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                <Activity className="w-3 h-3 mr-1" />
-                Versão Pro
+            <div className="flex items-center gap-2">
+              <Badge className="bg-yellow-600 text-black text-xs">
+                <Zap className="w-3 h-3 mr-1" />
+                Pro
               </Badge>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      {/* Navigation Tabs - Estilo mobile */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-8">
-            <TabsList className="grid grid-cols-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1">
+          <div className="flex justify-center mb-6">
+            <TabsList className="grid grid-cols-2 bg-gray-800 border border-gray-700 p-1 w-full max-w-md">
               <TabsTrigger 
                 value="replay" 
-                className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
               >
                 <BarChart3 className="w-4 h-4" />
-                Modo Replay
+                Replay
               </TabsTrigger>
               <TabsTrigger 
                 value="strategy"
-                className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
               >
                 <TrendingUp className="w-4 h-4" />
                 Estratégias
@@ -98,7 +98,7 @@ const CryptoStrategySimulator = () => {
             </TabsList>
           </div>
           
-          <TabsContent value="replay" className="space-y-6">
+          <TabsContent value="replay" className="space-y-4">
             {/* Controles do Replay */}
             <ProfessionalReplayControls
               onStartReplay={startReplay}
@@ -122,44 +122,44 @@ const CryptoStrategySimulator = () => {
               isActive={replayState.isActive}
             />
 
-            {/* Status e Estatísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="p-6 bg-white dark:bg-slate-800">
+            {/* Status e Estatísticas - Layout mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="p-4 bg-gray-900 border-gray-700">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                    <Activity className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div className="p-2 bg-green-600 rounded-lg">
+                    <Activity className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Status do Sistema</p>
-                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    <p className="text-xs text-gray-400">Status</p>
+                    <p className="text-sm font-semibold text-white">
                       {replayState.isActive ? 'Ativo' : 'Aguardando'}
                     </p>
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-white dark:bg-slate-800">
+              <Card className="p-4 bg-gray-900 border-gray-700">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="p-2 bg-blue-600 rounded-lg">
+                    <BarChart3 className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Candles Processados</p>
-                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    <p className="text-xs text-gray-400">Candles</p>
+                    <p className="text-sm font-semibold text-white">
                       {replayState.currentIndex} / {replayState.totalCandles}
                     </p>
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 bg-white dark:bg-slate-800">
+              <Card className="p-4 bg-gray-900 border-gray-700">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                    <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <div className="p-2 bg-yellow-600 rounded-lg">
+                    <TrendingUp className="w-4 h-4 text-black" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Velocidade Atual</p>
-                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    <p className="text-xs text-gray-400">Velocidade</p>
+                    <p className="text-sm font-semibold text-white">
                       {replayState.speed}x
                     </p>
                   </div>
@@ -169,15 +169,17 @@ const CryptoStrategySimulator = () => {
           </TabsContent>
           
           <TabsContent value="strategy" className="space-y-6">
-            <Card className="p-8 bg-white dark:bg-slate-800 text-center">
-              <TrendingUp className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+            <Card className="p-8 bg-gray-900 border-gray-700 text-center">
+              <TrendingUp className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">
                 Estratégias de Trading
               </h3>
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
+              <p className="text-gray-400 mb-6">
                 Módulo de estratégias automatizadas em desenvolvimento.
               </p>
-              <Badge variant="secondary">Em Breve</Badge>
+              <Badge variant="secondary" className="bg-gray-700 text-gray-300">
+                Em Breve
+              </Badge>
             </Card>
           </TabsContent>
         </Tabs>

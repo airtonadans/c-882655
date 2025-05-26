@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Bar } from 'recharts';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Minus } from 'lucide-react';
 import { CandleData } from '../utils/marketDataGenerator';
 
 interface ProfessionalCandleChartProps {
@@ -28,23 +28,20 @@ const CandleBar: React.FC<CandleBarProps> = ({ x = 0, y = 0, width = 0, height =
 
   const { open, close, high, low } = payload;
   const isBullish = close > open;
-  const color = isBullish ? '#10b981' : '#ef4444';
+  const color = isBullish ? '#0ECB81' : '#F6465D'; // Cores estilo Binance
   
-  // Calcular dimensões da vela
   const maxPrice = Math.max(high, low, open, close);
   const minPrice = Math.min(high, low, open, close);
   const priceRange = maxPrice - minPrice || 0.01;
   
-  // Corpo da vela
   const bodyHeight = Math.abs(close - open) / priceRange * height;
   const bodyTop = y + ((maxPrice - Math.max(open, close)) / priceRange * height);
   
-  // Mechas
   const wickTop = y + ((maxPrice - high) / priceRange * height);
   const wickBottom = y + ((maxPrice - low) / priceRange * height);
   
   const wickX = x + width / 2;
-  const bodyWidth = Math.max(width * 0.7, 2);
+  const bodyWidth = Math.max(width * 0.8, 2);
   const bodyX = x + (width - bodyWidth) / 2;
 
   return (
@@ -56,7 +53,7 @@ const CandleBar: React.FC<CandleBarProps> = ({ x = 0, y = 0, width = 0, height =
         x2={wickX}
         y2={bodyTop}
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={1}
       />
       
       {/* Corpo da vela */}
@@ -68,7 +65,7 @@ const CandleBar: React.FC<CandleBarProps> = ({ x = 0, y = 0, width = 0, height =
         fill={isBullish ? color : 'transparent'}
         stroke={color}
         strokeWidth={1.5}
-        rx={1}
+        rx={0.5}
       />
       
       {/* Mecha inferior */}
@@ -78,7 +75,7 @@ const CandleBar: React.FC<CandleBarProps> = ({ x = 0, y = 0, width = 0, height =
         x2={wickX}
         y2={wickBottom}
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={1}
       />
     </g>
   );
@@ -90,35 +87,36 @@ const CustomTooltip = ({ active, payload }: any) => {
   const data = payload[0].payload as CandleData;
   const change = data.close - data.open;
   const changePercent = (change / data.open) * 100;
+  const isBullish = change >= 0;
   
   return (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700">
+    <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg shadow-xl text-white">
       <div className="space-y-2">
-        <p className="font-medium text-slate-900 dark:text-slate-100">
+        <p className="font-medium text-gray-300 text-xs">
           {new Date(data.time * 1000).toLocaleString()}
         </p>
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
-            <p className="text-slate-600 dark:text-slate-400">Abertura</p>
-            <p className="font-mono font-semibold">${data.open.toFixed(2)}</p>
+            <p className="text-gray-500">Abertura</p>
+            <p className="font-mono font-semibold text-white">${data.open.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-slate-600 dark:text-slate-400">Fechamento</p>
-            <p className={`font-mono font-semibold ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className="text-gray-500">Fechamento</p>
+            <p className={`font-mono font-semibold ${isBullish ? 'text-green-400' : 'text-red-400'}`}>
               ${data.close.toFixed(2)}
             </p>
           </div>
           <div>
-            <p className="text-slate-600 dark:text-slate-400">Máxima</p>
-            <p className="font-mono font-semibold">${data.high.toFixed(2)}</p>
+            <p className="text-gray-500">Máxima</p>
+            <p className="font-mono font-semibold text-gray-300">${data.high.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-slate-600 dark:text-slate-400">Mínima</p>
-            <p className="font-mono font-semibold">${data.low.toFixed(2)}</p>
+            <p className="text-gray-500">Mínima</p>
+            <p className="font-mono font-semibold text-gray-300">${data.low.toFixed(2)}</p>
           </div>
         </div>
-        <div className="pt-2 border-t border-slate-200 dark:border-slate-600">
-          <p className={`text-sm font-medium ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+        <div className="pt-2 border-t border-gray-700">
+          <p className={`text-xs font-medium ${isBullish ? 'text-green-400' : 'text-red-400'}`}>
             {change >= 0 ? '+' : ''}${change.toFixed(2)} ({changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%)
           </p>
         </div>
@@ -141,13 +139,6 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
     }
   }, [data, currentIndex]);
 
-  const formatXAxisLabel = (tickItem: number) => {
-    if (visibleData[tickItem]) {
-      return new Date(visibleData[tickItem].time * 1000).toLocaleDateString();
-    }
-    return '';
-  };
-
   const getCurrentTrend = () => {
     if (!currentCandle) return null;
     
@@ -160,39 +151,40 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
   const trend = getCurrentTrend();
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 border-slate-200 dark:border-slate-700">
-      {/* Header do gráfico */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-500 rounded-lg">
-            <Activity className="w-5 h-5 text-white" />
+    <Card className="p-3 bg-gray-900 border-gray-700">
+      {/* Header compacto para mobile */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-yellow-500 rounded-md">
+            <Activity className="w-4 h-4 text-black" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              BTCUSDT Simulação
+            <h3 className="text-sm font-semibold text-white">
+              BTCUSDT
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Gráfico de Candles Sintético
+            <p className="text-xs text-gray-400">
+              Simulação de Mercado
             </p>
           </div>
         </div>
         
         {isActive && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {trend === 'bullish' && (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              <Badge className="bg-green-600 text-white text-xs px-2 py-1">
                 <TrendingUp className="w-3 h-3 mr-1" />
                 Alta
               </Badge>
             )}
             {trend === 'bearish' && (
-              <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+              <Badge className="bg-red-600 text-white text-xs px-2 py-1">
                 <TrendingDown className="w-3 h-3 mr-1" />
                 Baixa
               </Badge>
             )}
             {trend === 'neutral' && (
-              <Badge variant="secondary">
+              <Badge className="bg-gray-600 text-white text-xs px-2 py-1">
+                <Minus className="w-3 h-3 mr-1" />
                 Lateral
               </Badge>
             )}
@@ -200,39 +192,42 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
         )}
       </div>
 
-      {/* Informações do candle atual */}
+      {/* Informações do candle atual - Layout mobile */}
       {currentCandle && (
-        <div className="mb-6 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">Abertura</p>
-              <p className="font-mono font-semibold text-slate-900 dark:text-slate-100">
+        <div className="mb-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div className="text-center">
+              <p className="text-gray-500 mb-1">Abertura</p>
+              <p className="font-mono font-semibold text-white">
                 ${currentCandle.open.toFixed(2)}
               </p>
             </div>
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">Máxima</p>
-              <p className="font-mono font-semibold text-green-600">
+            <div className="text-center">
+              <p className="text-gray-500 mb-1">Máxima</p>
+              <p className="font-mono font-semibold text-green-400">
                 ${currentCandle.high.toFixed(2)}
               </p>
             </div>
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">Mínima</p>
-              <p className="font-mono font-semibold text-red-600">
+            <div className="text-center">
+              <p className="text-gray-500 mb-1">Mínima</p>
+              <p className="font-mono font-semibold text-red-400">
                 ${currentCandle.low.toFixed(2)}
               </p>
             </div>
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">Fechamento</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+            <div className="text-center">
+              <p className="text-gray-500 mb-1">Fechamento</p>
               <p className={`font-mono font-semibold ${
-                currentCandle.close >= currentCandle.open ? 'text-green-600' : 'text-red-600'
+                currentCandle.close >= currentCandle.open ? 'text-green-400' : 'text-red-400'
               }`}>
                 ${currentCandle.close.toFixed(2)}
               </p>
             </div>
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">Volume</p>
-              <p className="font-mono font-semibold text-slate-900 dark:text-slate-100">
+            <div className="text-center">
+              <p className="text-gray-500 mb-1">Volume</p>
+              <p className="font-mono font-semibold text-yellow-400">
                 {(currentCandle.volume / 1000000).toFixed(2)}M
               </p>
             </div>
@@ -240,52 +235,47 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
         </div>
       )}
 
-      {/* Gráfico */}
-      <div className="h-[500px] w-full">
+      {/* Gráfico otimizado para mobile */}
+      <div className="h-[400px] w-full">
         {visibleData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart 
               data={visibleData} 
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
             >
               <CartesianGrid 
-                strokeDasharray="3 3" 
-                stroke="#e2e8f0" 
-                className="dark:stroke-slate-600"
+                strokeDasharray="1 1" 
+                stroke="#374151" 
+                opacity={0.3}
               />
               <XAxis 
                 dataKey="time"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: '#64748b' }}
-                tickFormatter={(value) => new Date(value * 1000).toLocaleDateString()}
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                tickFormatter={(value) => new Date(value * 1000).toLocaleDateString('pt-BR')}
               />
               <YAxis 
-                domain={['dataMin - 500', 'dataMax + 500']}
+                domain={['dataMin - 200', 'dataMax + 200']}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: '#64748b' }}
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
                 tickFormatter={(value) => `$${value.toFixed(0)}`}
+                width={60}
               />
               <Tooltip content={<CustomTooltip />} />
-              <ComposedChart>
-                {visibleData.map((entry, index) => (
-                  <Cell key={index}>
-                    <CandleBar payload={entry} />
-                  </Cell>
-                ))}
-              </ComposedChart>
+              <Bar dataKey="open" shape={<CandleBar />} />
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-full flex items-center justify-center">
+          <div className="h-full flex items-center justify-center bg-gray-800 rounded-lg">
             <div className="text-center">
-              <Activity className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-600 dark:text-slate-400">
-                Aguardando dados do simulador...
+              <Activity className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">
+                Aguardando simulação...
               </p>
-              <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">
-                Configure as datas e clique em "Iniciar Simulação"
+              <p className="text-xs text-gray-600 mt-1">
+                Configure as datas e inicie
               </p>
             </div>
           </div>
