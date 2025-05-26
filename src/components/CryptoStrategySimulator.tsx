@@ -1,14 +1,12 @@
 
 import React, { useState } from 'react';
-import TradingChart from './TradingChart';
-import ReplayChart from './ReplayChart';
-import CryptoPairSelector from './CryptoPairSelector';
-import StrategyControls from './StrategyControls';
-import SimulationStats from './SimulationStats';
-import TimeframeSelector from './TimeframeSelector';
-import ReplayControls from './ReplayControls';
-import { useReplayMode } from '../hooks/useReplayMode';
+import ProfessionalReplayControls from './ProfessionalReplayControls';
+import ProfessionalCandleChart from './ProfessionalCandleChart';
+import { useReplaySystem } from '../hooks/useReplaySystem';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { TrendingUp, Activity, BarChart3 } from 'lucide-react';
 
 export interface Trade {
   id: string;
@@ -28,10 +26,8 @@ export interface SimulationData {
 }
 
 const CryptoStrategySimulator = () => {
-  const [selectedPair, setSelectedPair] = useState('BTCUSDT');
-  const [timeframe, setTimeframe] = useState('1');
-  const [activeTab, setActiveTab] = useState('strategy');
-  const [simulationData, setSimulationData] = useState<SimulationData>({
+  const [activeTab, setActiveTab] = useState('replay');
+  const [simulationData] = useState<SimulationData>({
     trades: [],
     totalOperations: 0,
     successRate: 0,
@@ -41,102 +37,70 @@ const CryptoStrategySimulator = () => {
   });
 
   const {
-    replayState,
+    state: replayState,
     startReplay,
     pauseReplay,
     stopReplay,
     resetReplay,
-    setOnCandleUpdate,
     changeSpeed,
-    jumpToPosition,
-  } = useReplayMode();
-
-  const handleStartStrategy = () => {
-    console.log('Iniciando estratégia NTSL para', selectedPair);
-    setSimulationData(prev => ({ ...prev, isRunning: true }));
-    
-    // Simular trades aleatórios para demonstração
-    setTimeout(() => {
-      const mockTrades: Trade[] = [
-        { id: '1', type: 'buy', price: 45000, time: Date.now() - 3600000 },
-        { id: '2', type: 'sell', price: 46500, time: Date.now() - 1800000, profit: 1500 },
-        { id: '3', type: 'buy', price: 46200, time: Date.now() - 900000 },
-      ];
-      
-      setSimulationData(prev => ({
-        ...prev,
-        trades: mockTrades,
-        totalOperations: mockTrades.length,
-        successRate: 66.67,
-        totalPnL: 1200,
-        finalBalance: 11200
-      }));
-    }, 2000);
-  };
-
-  const handleStopStrategy = () => {
-    console.log('Parando estratégia NTSL');
-    setSimulationData(prev => ({ ...prev, isRunning: false }));
-  };
-
-  const handleResetStrategy = () => {
-    console.log('Resetando estratégia NTSL');
-    setSimulationData({
-      trades: [],
-      totalOperations: 0,
-      successRate: 0,
-      totalPnL: 0,
-      finalBalance: 10000,
-      isRunning: false
-    });
-  };
+    setOnCandleUpdate
+  } = useReplaySystem();
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <div className="p-4 border-b border-border">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Simulador NTSL</h1>
-            <p className="text-sm text-muted-foreground">Estratégias para Criptomoedas</p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-2">
-            <CryptoPairSelector 
-              selectedPair={selectedPair}
-              onPairChange={setSelectedPair}
-            />
-            <TimeframeSelector 
-              selectedTimeframe={timeframe}
-              onTimeframeChange={setTimeframe}
-            />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      {/* Header Profissional */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  Simulador Profissional de Trading
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400">
+                  Sistema Avançado de Análise e Replay de Mercado
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                <Activity className="w-3 h-3 mr-1" />
+                Versão Pro
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs para alternar entre Estratégia e Replay */}
-      <div className="p-4 border-b border-border">
+      {/* Navigation Tabs */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-muted">
-            <TabsTrigger value="strategy" className="data-[state=active]:bg-background">
-              Estratégia NTSL
-            </TabsTrigger>
-            <TabsTrigger value="replay" className="data-[state=active]:bg-background">
-              Modo Replay
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-center mb-8">
+            <TabsList className="grid grid-cols-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1">
+              <TabsTrigger 
+                value="replay" 
+                className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+              >
+                <BarChart3 className="w-4 h-4" />
+                Modo Replay
+              </TabsTrigger>
+              <TabsTrigger 
+                value="strategy"
+                className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+              >
+                <TrendingUp className="w-4 h-4" />
+                Estratégias
+              </TabsTrigger>
+            </TabsList>
+          </div>
           
-          <TabsContent value="strategy" className="mt-4">
-            <StrategyControls 
-              onStart={handleStartStrategy}
-              onStop={handleStopStrategy}
-              onReset={handleResetStrategy}
-              isRunning={simulationData.isRunning}
-            />
-          </TabsContent>
-          
-          <TabsContent value="replay" className="mt-4">
-            <ReplayControls
+          <TabsContent value="replay" className="space-y-6">
+            {/* Controles do Replay */}
+            <ProfessionalReplayControls
               onStartReplay={startReplay}
               onPauseReplay={pauseReplay}
               onStopReplay={stopReplay}
@@ -145,84 +109,78 @@ const CryptoStrategySimulator = () => {
               isPlaying={replayState.isPlaying}
               isPaused={replayState.isPaused}
               currentSpeed={replayState.speed}
+              progress={replayState.progress}
+              totalCandles={replayState.totalCandles}
+              currentIndex={replayState.currentIndex}
             />
-          </TabsContent>
-        </Tabs>
-      </div>
 
-      {/* Trading Chart / Replay Chart */}
-      <div className="p-4">
-        {activeTab === 'strategy' ? (
-          <TradingChart 
-            symbol={selectedPair}
-            interval={timeframe}
-            trades={simulationData.trades}
-            replayMode={false}
-          />
-        ) : (
-          <ReplayChart
-            data={replayState.data}
-            currentIndex={replayState.currentIndex}
-            onJumpToPosition={jumpToPosition}
-            speed={replayState.speed}
-          />
-        )}
-      </div>
+            {/* Gráfico Principal */}
+            <ProfessionalCandleChart
+              data={replayState.data}
+              currentIndex={replayState.currentIndex}
+              currentCandle={replayState.currentCandle}
+              isActive={replayState.isActive}
+            />
 
-      {/* Simulation Statistics */}
-      <div className="p-4">
-        {activeTab === 'strategy' ? (
-          <SimulationStats data={simulationData} />
-        ) : (
-          <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-2">Status do Replay</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Candles Processados:</span>
-                <p className="font-mono text-lg">{replayState.currentIndex}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Total de Candles:</span>
-                <p className="font-mono text-lg">{replayState.data.length}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Velocidade:</span>
-                <p className="font-mono text-lg">{replayState.speed}x</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Progresso:</span>
-                <p className="font-mono text-lg">
-                  {replayState.data.length > 0 
-                    ? Math.round((replayState.currentIndex / replayState.data.length) * 100)
-                    : 0}%
-                </p>
-              </div>
-            </div>
-            
-            {/* Timeline com período atual */}
-            {replayState.data.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-border">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            {/* Status e Estatísticas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="p-6 bg-white dark:bg-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <Activity className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
                   <div>
-                    <span className="text-muted-foreground">Período do Replay:</span>
-                    <p className="font-mono">
-                      {new Date(replayState.data[0].time * 1000).toLocaleDateString()} - {' '}
-                      {new Date(replayState.data[replayState.data.length - 1].time * 1000).toLocaleDateString()}
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Status do Sistema</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                      {replayState.isActive ? 'Ativo' : 'Aguardando'}
                     </p>
                   </div>
-                  {replayState.currentIndex > 0 && (
-                    <div>
-                      <span className="text-muted-foreground">Posição Atual:</span>
-                      <p className="font-mono">
-                        {new Date(replayState.data[replayState.currentIndex - 1].time * 1000).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              </Card>
+
+              <Card className="p-6 bg-white dark:bg-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Candles Processados</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                      {replayState.currentIndex} / {replayState.totalCandles}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 bg-white dark:bg-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                    <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Velocidade Atual</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                      {replayState.speed}x
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="strategy" className="space-y-6">
+            <Card className="p-8 bg-white dark:bg-slate-800 text-center">
+              <TrendingUp className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                Estratégias de Trading
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
+                Módulo de estratégias automatizadas em desenvolvimento.
+              </p>
+              <Badge variant="secondary">Em Breve</Badge>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
