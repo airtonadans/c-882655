@@ -1,5 +1,7 @@
+
 import React, { useState } from 'react';
 import TradingChart from './TradingChart';
+import ReplayChart from './ReplayChart';
 import CryptoPairSelector from './CryptoPairSelector';
 import StrategyControls from './StrategyControls';
 import SimulationStats from './SimulationStats';
@@ -45,6 +47,8 @@ const CryptoStrategySimulator = () => {
     stopReplay,
     resetReplay,
     setOnCandleUpdate,
+    changeSpeed,
+    jumpToPosition,
   } = useReplayMode();
 
   const handleStartStrategy = () => {
@@ -137,22 +141,32 @@ const CryptoStrategySimulator = () => {
               onPauseReplay={pauseReplay}
               onStopReplay={stopReplay}
               onResetReplay={resetReplay}
+              onSpeedChange={changeSpeed}
               isPlaying={replayState.isPlaying}
               isPaused={replayState.isPaused}
+              currentSpeed={replayState.speed}
             />
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Trading Chart */}
+      {/* Trading Chart / Replay Chart */}
       <div className="p-4">
-        <TradingChart 
-          symbol={selectedPair}
-          interval={timeframe}
-          trades={simulationData.trades}
-          replayMode={activeTab === 'replay'}
-          onCandleUpdate={setOnCandleUpdate}
-        />
+        {activeTab === 'strategy' ? (
+          <TradingChart 
+            symbol={selectedPair}
+            interval={timeframe}
+            trades={simulationData.trades}
+            replayMode={false}
+          />
+        ) : (
+          <ReplayChart
+            data={replayState.data}
+            currentIndex={replayState.currentIndex}
+            onJumpToPosition={jumpToPosition}
+            speed={replayState.speed}
+          />
+        )}
       </div>
 
       {/* Simulation Statistics */}
@@ -184,6 +198,29 @@ const CryptoStrategySimulator = () => {
                 </p>
               </div>
             </div>
+            
+            {/* Timeline com período atual */}
+            {replayState.data.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Período do Replay:</span>
+                    <p className="font-mono">
+                      {new Date(replayState.data[0].time * 1000).toLocaleDateString()} - {' '}
+                      {new Date(replayState.data[replayState.data.length - 1].time * 1000).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {replayState.currentIndex > 0 && (
+                    <div>
+                      <span className="text-muted-foreground">Posição Atual:</span>
+                      <p className="font-mono">
+                        {new Date(replayState.data[replayState.currentIndex - 1].time * 1000).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
