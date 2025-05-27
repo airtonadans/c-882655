@@ -13,8 +13,8 @@ interface ProfessionalCandleChartProps {
   isActive: boolean;
 }
 
-// Componente customizado para renderizar candles
-const CustomCandleBar = (props: any) => {
+// Componente customizado para renderizar candles flutuantes
+const FloatingCandleBar = (props: any) => {
   const { payload, x, y, width, height } = props;
   
   if (!payload || !payload.open || !payload.close || !payload.high || !payload.low) {
@@ -25,35 +25,37 @@ const CustomCandleBar = (props: any) => {
   const isBullish = close >= open;
   const color = isBullish ? '#0ECB81' : '#F6465D';
   
-  // Calcular as proporções baseadas no range de preços
+  // Calcular as posições dos preços no espaço do gráfico
   const priceRange = high - low;
   if (priceRange === 0) return null;
   
-  const candleWidth = Math.max(width * 0.7, 4);
+  const candleWidth = Math.max(width * 0.6, 3);
   const centerX = x + width / 2;
   
-  // Calcular posições Y baseadas nos preços
-  const bodyTop = Math.min(open, close);
-  const bodyBottom = Math.max(open, close);
-  const bodyHeight = Math.abs(close - open);
+  // Calcular as posições Y baseadas nos valores reais dos preços
+  // O Y vem do Recharts já mapeado para a altura correta
+  const highY = y;
+  const lowY = y + height;
   
-  // Normalizar para o height disponível
-  const yScale = height / priceRange;
-  const yOffset = y + (high - Math.max(open, close)) * yScale;
-  const normalizedBodyHeight = bodyHeight * yScale;
+  // Calcular posições do corpo baseadas no open/close
+  const openRatio = (high - open) / priceRange;
+  const closeRatio = (high - close) / priceRange;
   
-  const wickTop = y + (high - high) * yScale;
-  const wickBottom = y + (high - low) * yScale;
-  const bodyY = y + (high - Math.max(open, close)) * yScale;
+  const openY = y + (openRatio * height);
+  const closeY = y + (closeRatio * height);
+  
+  const bodyTop = Math.min(openY, closeY);
+  const bodyBottom = Math.max(openY, closeY);
+  const bodyHeight = Math.abs(bodyBottom - bodyTop);
   
   return (
     <g>
-      {/* Mecha superior */}
+      {/* Mecha superior (da máxima até o topo do corpo) */}
       <line
         x1={centerX}
-        y1={wickTop}
+        y1={highY}
         x2={centerX}
-        y2={bodyY}
+        y2={bodyTop}
         stroke={color}
         strokeWidth={1}
       />
@@ -61,20 +63,20 @@ const CustomCandleBar = (props: any) => {
       {/* Corpo do candle */}
       <rect
         x={centerX - candleWidth / 2}
-        y={bodyY}
+        y={bodyTop}
         width={candleWidth}
-        height={Math.max(normalizedBodyHeight, 1)}
+        height={Math.max(bodyHeight, 1)}
         fill={isBullish ? color : 'transparent'}
         stroke={color}
         strokeWidth={1.5}
       />
       
-      {/* Mecha inferior */}
+      {/* Mecha inferior (da base do corpo até a mínima) */}
       <line
         x1={centerX}
-        y1={bodyY + normalizedBodyHeight}
+        y1={bodyBottom}
         x2={centerX}
-        y2={wickBottom}
+        y2={lowY}
         stroke={color}
         strokeWidth={1}
       />
@@ -152,11 +154,11 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
 
   const trend = getCurrentTrend();
 
-  // Calcular domain do Y baseado nos dados visíveis
+  // Calcular domain do Y baseado nos dados visíveis com margem
   const yDomain = visibleData.length > 0 
     ? [
-        Math.min(...visibleData.map(d => d.low)) * 0.998,
-        Math.max(...visibleData.map(d => d.high)) * 1.002
+        Math.min(...visibleData.map(d => d.low)) * 0.995,
+        Math.max(...visibleData.map(d => d.high)) * 1.005
       ]
     : [0, 100];
 
@@ -251,7 +253,7 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart 
               data={visibleData} 
-              margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+              margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
             >
               <CartesianGrid strokeDasharray="1 1" stroke="#374151" opacity={0.3} />
               <XAxis 
@@ -274,11 +276,12 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
               />
               <Tooltip content={<CustomTooltip />} />
               
-              {/* Bar invisível para capturar dados */}
+              {/* Bar que carrega os dados para o candlestick customizado */}
               <Bar 
                 dataKey="high"
-                shape={<CustomCandleBar />}
+                shape={<FloatingCandleBar />}
                 fill="transparent"
+                stroke="none"
               />
             </ComposedChart>
           </ResponsiveContainer>
