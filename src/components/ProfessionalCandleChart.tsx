@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Activity, Minus } from 'lucide-react';
@@ -15,69 +15,88 @@ interface ProfessionalCandleChartProps {
 
 interface CandleProps {
   data: CandleData[];
-  xScale: any;
-  yScale: any;
+  index: number;
+  x: number;
+  y: number;
   width: number;
   height: number;
+  chartWidth: number;
+  chartHeight: number;
 }
 
-const CandleChart: React.FC<CandleProps> = ({ data, xScale, yScale, width, height }) => {
-  if (!data || data.length === 0) return null;
+const CandleStick: React.FC<CandleProps> = ({ 
+  data, 
+  index, 
+  x, 
+  y, 
+  width, 
+  height, 
+  chartWidth, 
+  chartHeight 
+}) => {
+  if (!data || data.length === 0 || index >= data.length) return null;
 
-  const candleWidth = Math.max(width / data.length * 0.7, 3);
+  const candle = data[index];
+  if (!candle) return null;
 
+  const candleWidth = Math.max(width * 0.6, 3);
+  const centerX = x + width / 2;
+  
+  // Calcular posições baseadas nos dados reais
+  const priceRange = Math.max(...data.slice(0, index + 1).map(d => d.high)) - 
+                     Math.min(...data.slice(0, index + 1).map(d => d.low));
+  const minPrice = Math.min(...data.slice(0, index + 1).map(d => d.low));
+  
+  if (priceRange === 0) return null;
+
+  // Posições Y baseadas nos preços reais
+  const getYPosition = (price: number) => {
+    return y + ((Math.max(...data.slice(0, index + 1).map(d => d.high)) - price) / priceRange) * height;
+  };
+
+  const yHigh = getYPosition(candle.high);
+  const yLow = getYPosition(candle.low);
+  const yOpen = getYPosition(candle.open);
+  const yClose = getYPosition(candle.close);
+  
+  const isBullish = candle.close >= candle.open;
+  const color = isBullish ? '#0ECB81' : '#F6465D';
+  
+  const bodyTop = Math.min(yOpen, yClose);
+  const bodyHeight = Math.abs(yClose - yOpen);
+  
   return (
     <g>
-      {data.map((candle, index) => {
-        const x = xScale(index);
-        const centerX = x + (width / data.length) / 2;
-        
-        const yHigh = yScale(candle.high);
-        const yLow = yScale(candle.low);
-        const yOpen = yScale(candle.open);
-        const yClose = yScale(candle.close);
-        
-        const isBullish = candle.close >= candle.open;
-        const color = isBullish ? '#0ECB81' : '#F6465D';
-        
-        const bodyTop = Math.min(yOpen, yClose);
-        const bodyHeight = Math.abs(yClose - yOpen);
-        
-        return (
-          <g key={index}>
-            {/* Sombra superior */}
-            <line
-              x1={centerX}
-              y1={yHigh}
-              x2={centerX}
-              y2={bodyTop}
-              stroke={color}
-              strokeWidth={1}
-            />
-            
-            {/* Corpo do candle */}
-            <rect
-              x={centerX - candleWidth / 2}
-              y={bodyTop}
-              width={candleWidth}
-              height={Math.max(bodyHeight, 1)}
-              fill={isBullish ? color : 'transparent'}
-              stroke={color}
-              strokeWidth={1}
-            />
-            
-            {/* Sombra inferior */}
-            <line
-              x1={centerX}
-              y1={bodyTop + bodyHeight}
-              x2={centerX}
-              y2={yLow}
-              stroke={color}
-              strokeWidth={1}
-            />
-          </g>
-        );
-      })}
+      {/* Sombra superior */}
+      <line
+        x1={centerX}
+        y1={yHigh}
+        x2={centerX}
+        y2={bodyTop}
+        stroke={color}
+        strokeWidth={1}
+      />
+      
+      {/* Corpo do candle */}
+      <rect
+        x={centerX - candleWidth / 2}
+        y={bodyTop}
+        width={candleWidth}
+        height={Math.max(bodyHeight, 1)}
+        fill={isBullish ? color : 'transparent'}
+        stroke={color}
+        strokeWidth={1}
+      />
+      
+      {/* Sombra inferior */}
+      <line
+        x1={centerX}
+        y1={bodyTop + bodyHeight}
+        x2={centerX}
+        y2={yLow}
+        stroke={color}
+        strokeWidth={1}
+      />
     </g>
   );
 };
@@ -85,14 +104,20 @@ const CandleChart: React.FC<CandleProps> = ({ data, xScale, yScale, width, heigh
 const CustomChart = ({ data }: { data: CandleData[] }) => {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+      <ComposedChart 
+        data={data.map((item, index) => ({ ...item, index }))} 
+        margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+      >
         <CartesianGrid strokeDasharray="1 1" stroke="#374151" opacity={0.3} />
         <XAxis 
-          dataKey="time"
+          dataKey="index"
           axisLine={false}
           tickLine={false}
           tick={{ fontSize: 10, fill: '#9CA3AF' }}
-          tickFormatter={(value) => new Date(value * 1000).toLocaleDateString('pt-BR')}
+          tickFormatter={(value) => {
+            const item = data[value];
+            return item ? new Date(item.time * 1000).toLocaleDateString('pt-BR') : '';
+          }}
         />
         <YAxis 
           domain={['dataMin - 200', 'dataMax + 200']}
@@ -103,7 +128,27 @@ const CustomChart = ({ data }: { data: CandleData[] }) => {
           width={60}
         />
         <Tooltip content={<CustomTooltip />} />
-        <CandleChart />
+        
+        {/* Renderizar candles manualmente */}
+        {data.map((candle, index) => (
+          <ReferenceLine
+            key={index}
+            x={index}
+            stroke="transparent"
+            shape={(props: any) => (
+              <CandleStick
+                data={data}
+                index={index}
+                x={props.x}
+                y={props.y}
+                width={props.width || 10}
+                height={props.height || 100}
+                chartWidth={props.chartWidth || 800}
+                chartHeight={props.chartHeight || 400}
+              />
+            )}
+          />
+        ))}
       </ComposedChart>
     </ResponsiveContainer>
   );
