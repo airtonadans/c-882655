@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Activity, Minus } from 'lucide-react';
 import { CandleData } from '../utils/advancedMarketGenerator';
+import CustomTooltip from './CustomTooltip';
 
 interface ProfessionalCandleChartProps {
   data: CandleData[];
@@ -25,106 +26,81 @@ const FloatingCandleBar = (props: any) => {
   const isBullish = close >= open;
   const color = isBullish ? '#0ECB81' : '#F6465D';
   
-  // Calcular as posições dos preços no espaço do gráfico
-  const priceRange = high - low;
-  if (priceRange === 0) return null;
-  
   const candleWidth = Math.max(width * 0.6, 3);
   const centerX = x + width / 2;
   
-  // Calcular as posições Y baseadas nos valores reais dos preços
-  // O Y vem do Recharts já mapeado para a altura correta
+  // Calcular as posições Y baseadas na escala do gráfico
+  // O Recharts mapeia automaticamente os valores para as coordenadas Y
+  const priceRange = high - low;
+  if (priceRange === 0) {
+    // Se não há variação de preço, renderizar apenas uma linha horizontal
+    return (
+      <g>
+        <rect
+          x={centerX - candleWidth / 2}
+          y={y}
+          width={candleWidth}
+          height={1}
+          fill={color}
+          stroke={color}
+          strokeWidth={1}
+        />
+      </g>
+    );
+  }
+  
+  // Calcular as posições Y do corpo do candle
+  const bodyTop = Math.max(open, close);
+  const bodyBottom = Math.min(open, close);
+  const bodyHeight = Math.abs(close - open);
+  
+  // Mapear os preços para coordenadas Y do gráfico
+  // A coordenada Y cresce de cima para baixo, então invertemos a lógica
+  const yScale = height / priceRange;
+  
   const highY = y;
   const lowY = y + height;
-  
-  // Calcular posições do corpo baseadas no open/close
-  const openRatio = (high - open) / priceRange;
-  const closeRatio = (high - close) / priceRange;
-  
-  const openY = y + (openRatio * height);
-  const closeY = y + (closeRatio * height);
-  
-  const bodyTop = Math.min(openY, closeY);
-  const bodyBottom = Math.max(openY, closeY);
-  const bodyHeight = Math.abs(bodyBottom - bodyTop);
-  
+  const bodyTopY = y + ((high - bodyTop) / priceRange) * height;
+  const bodyBottomY = y + ((high - bodyBottom) / priceRange) * height;
+  const bodyHeightPixels = Math.abs(bodyBottomY - bodyTopY);
+
   return (
     <g>
       {/* Mecha superior (da máxima até o topo do corpo) */}
-      <line
-        x1={centerX}
-        y1={highY}
-        x2={centerX}
-        y2={bodyTop}
-        stroke={color}
-        strokeWidth={1}
-      />
+      {high > bodyTop && (
+        <line
+          x1={centerX}
+          y1={highY}
+          x2={centerX}
+          y2={bodyTopY}
+          stroke={color}
+          strokeWidth={1}
+        />
+      )}
       
       {/* Corpo do candle */}
       <rect
         x={centerX - candleWidth / 2}
-        y={bodyTop}
+        y={Math.min(bodyTopY, bodyBottomY)}
         width={candleWidth}
-        height={Math.max(bodyHeight, 1)}
+        height={Math.max(bodyHeightPixels, 1)}
         fill={isBullish ? color : 'transparent'}
         stroke={color}
         strokeWidth={1.5}
       />
       
       {/* Mecha inferior (da base do corpo até a mínima) */}
-      <line
-        x1={centerX}
-        y1={bodyBottom}
-        x2={centerX}
-        y2={lowY}
-        stroke={color}
-        strokeWidth={1}
-      />
+      {low < bodyBottom && (
+        <line
+          x1={centerX}
+          y1={Math.max(bodyTopY, bodyBottomY)}
+          x2={centerX}
+          y2={lowY}
+          stroke={color}
+          strokeWidth={1}
+        />
+      )}
     </g>
-  );
-};
-
-const CustomTooltip = ({ active, payload }: any) => {
-  if (!active || !payload || !payload.length) return null;
-  
-  const data = payload[0].payload as CandleData;
-  const change = data.close - data.open;
-  const changePercent = (change / data.open) * 100;
-  const isBullish = change >= 0;
-  
-  return (
-    <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg shadow-xl text-white">
-      <div className="space-y-2">
-        <p className="font-medium text-gray-300 text-xs">
-          {new Date(data.time * 1000).toLocaleString()}
-        </p>
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <p className="text-gray-500">Abertura</p>
-            <p className="font-mono font-semibold text-white">${data.open.toFixed(2)}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Fechamento</p>
-            <p className={`font-mono font-semibold ${isBullish ? 'text-green-400' : 'text-red-400'}`}>
-              ${data.close.toFixed(2)}
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-500">Máxima</p>
-            <p className="font-mono font-semibold text-gray-300">${data.high.toFixed(2)}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Mínima</p>
-            <p className="font-mono font-semibold text-gray-300">${data.low.toFixed(2)}</p>
-          </div>
-        </div>
-        <div className="pt-2 border-t border-gray-700">
-          <p className={`text-xs font-medium ${isBullish ? 'text-green-400' : 'text-red-400'}`}>
-            {change >= 0 ? '+' : ''}${change.toFixed(2)} ({changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%)
-          </p>
-        </div>
-      </div>
-    </div>
   );
 };
 
@@ -154,12 +130,19 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
 
   const trend = getCurrentTrend();
 
-  // Calcular domain do Y baseado nos dados visíveis com margem
+  // Calcular domain do Y com padding de 10% em cima e embaixo
   const yDomain = visibleData.length > 0 
-    ? [
-        Math.min(...visibleData.map(d => d.low)) * 0.995,
-        Math.max(...visibleData.map(d => d.high)) * 1.005
-      ]
+    ? (() => {
+        const minPrice = Math.min(...visibleData.map(d => d.low));
+        const maxPrice = Math.max(...visibleData.map(d => d.high));
+        const priceRange = maxPrice - minPrice;
+        const padding = priceRange * 0.1; // 10% de padding
+        
+        return [
+          Math.max(0, minPrice - padding), // Não deixar ir abaixo de 0
+          maxPrice + padding
+        ];
+      })()
     : [0, 100];
 
   return (
