@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
+import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell, Bar } from 'recharts';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Activity, Minus } from 'lucide-react';
-import { CandleData } from '../utils/marketDataGenerator';
+import { CandleData } from '../utils/advancedMarketGenerator';
 
 interface ProfessionalCandleChartProps {
   data: CandleData[];
@@ -13,66 +13,47 @@ interface ProfessionalCandleChartProps {
   isActive: boolean;
 }
 
-interface CandleProps {
-  data: CandleData[];
-  index: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  chartWidth: number;
-  chartHeight: number;
-}
-
-const CandleStick: React.FC<CandleProps> = ({ 
-  data, 
-  index, 
-  x, 
-  y, 
-  width, 
-  height, 
-  chartWidth, 
-  chartHeight 
-}) => {
-  if (!data || data.length === 0 || index >= data.length) return null;
-
-  const candle = data[index];
-  if (!candle) return null;
-
-  const candleWidth = Math.max(width * 0.6, 3);
-  const centerX = x + width / 2;
+// Componente customizado para renderizar candles
+const CustomCandleBar = (props: any) => {
+  const { payload, x, y, width, height } = props;
   
-  // Calcular posições baseadas nos dados reais
-  const priceRange = Math.max(...data.slice(0, index + 1).map(d => d.high)) - 
-                     Math.min(...data.slice(0, index + 1).map(d => d.low));
-  const minPrice = Math.min(...data.slice(0, index + 1).map(d => d.low));
-  
-  if (priceRange === 0) return null;
+  if (!payload || !payload.open || !payload.close || !payload.high || !payload.low) {
+    return null;
+  }
 
-  // Posições Y baseadas nos preços reais
-  const getYPosition = (price: number) => {
-    return y + ((Math.max(...data.slice(0, index + 1).map(d => d.high)) - price) / priceRange) * height;
-  };
-
-  const yHigh = getYPosition(candle.high);
-  const yLow = getYPosition(candle.low);
-  const yOpen = getYPosition(candle.open);
-  const yClose = getYPosition(candle.close);
-  
-  const isBullish = candle.close >= candle.open;
+  const { open, close, high, low } = payload;
+  const isBullish = close >= open;
   const color = isBullish ? '#0ECB81' : '#F6465D';
   
-  const bodyTop = Math.min(yOpen, yClose);
-  const bodyHeight = Math.abs(yClose - yOpen);
+  // Calcular as proporções baseadas no range de preços
+  const priceRange = high - low;
+  if (priceRange === 0) return null;
+  
+  const candleWidth = Math.max(width * 0.7, 4);
+  const centerX = x + width / 2;
+  
+  // Calcular posições Y baseadas nos preços
+  const bodyTop = Math.min(open, close);
+  const bodyBottom = Math.max(open, close);
+  const bodyHeight = Math.abs(close - open);
+  
+  // Normalizar para o height disponível
+  const yScale = height / priceRange;
+  const yOffset = y + (high - Math.max(open, close)) * yScale;
+  const normalizedBodyHeight = bodyHeight * yScale;
+  
+  const wickTop = y + (high - high) * yScale;
+  const wickBottom = y + (high - low) * yScale;
+  const bodyY = y + (high - Math.max(open, close)) * yScale;
   
   return (
     <g>
-      {/* Sombra superior */}
+      {/* Mecha superior */}
       <line
         x1={centerX}
-        y1={yHigh}
+        y1={wickTop}
         x2={centerX}
-        y2={bodyTop}
+        y2={bodyY}
         stroke={color}
         strokeWidth={1}
       />
@@ -80,77 +61,24 @@ const CandleStick: React.FC<CandleProps> = ({
       {/* Corpo do candle */}
       <rect
         x={centerX - candleWidth / 2}
-        y={bodyTop}
+        y={bodyY}
         width={candleWidth}
-        height={Math.max(bodyHeight, 1)}
+        height={Math.max(normalizedBodyHeight, 1)}
         fill={isBullish ? color : 'transparent'}
         stroke={color}
-        strokeWidth={1}
+        strokeWidth={1.5}
       />
       
-      {/* Sombra inferior */}
+      {/* Mecha inferior */}
       <line
         x1={centerX}
-        y1={bodyTop + bodyHeight}
+        y1={bodyY + normalizedBodyHeight}
         x2={centerX}
-        y2={yLow}
+        y2={wickBottom}
         stroke={color}
         strokeWidth={1}
       />
     </g>
-  );
-};
-
-const CustomChart = ({ data }: { data: CandleData[] }) => {
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart 
-        data={data.map((item, index) => ({ ...item, index }))} 
-        margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
-      >
-        <CartesianGrid strokeDasharray="1 1" stroke="#374151" opacity={0.3} />
-        <XAxis 
-          dataKey="index"
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 10, fill: '#9CA3AF' }}
-          tickFormatter={(value) => {
-            const item = data[value];
-            return item ? new Date(item.time * 1000).toLocaleDateString('pt-BR') : '';
-          }}
-        />
-        <YAxis 
-          domain={['dataMin - 200', 'dataMax + 200']}
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 10, fill: '#9CA3AF' }}
-          tickFormatter={(value) => `$${value.toFixed(0)}`}
-          width={60}
-        />
-        <Tooltip content={<CustomTooltip />} />
-        
-        {/* Renderizar candles manualmente */}
-        {data.map((candle, index) => (
-          <ReferenceLine
-            key={index}
-            x={index}
-            stroke="transparent"
-            shape={(props: any) => (
-              <CandleStick
-                data={data}
-                index={index}
-                x={props.x}
-                y={props.y}
-                width={props.width || 10}
-                height={props.height || 100}
-                chartWidth={props.chartWidth || 800}
-                chartHeight={props.chartHeight || 400}
-              />
-            )}
-          />
-        ))}
-      </ComposedChart>
-    </ResponsiveContainer>
   );
 };
 
@@ -208,7 +136,8 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
 
   useEffect(() => {
     if (data.length > 0 && currentIndex >= 0) {
-      setVisibleData(data.slice(0, currentIndex + 1));
+      const dataToShow = data.slice(0, currentIndex + 1);
+      setVisibleData(dataToShow.map((item, index) => ({ ...item, index })));
     }
   }, [data, currentIndex]);
 
@@ -222,6 +151,14 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
   };
 
   const trend = getCurrentTrend();
+
+  // Calcular domain do Y baseado nos dados visíveis
+  const yDomain = visibleData.length > 0 
+    ? [
+        Math.min(...visibleData.map(d => d.low)) * 0.998,
+        Math.max(...visibleData.map(d => d.high)) * 1.002
+      ]
+    : [0, 100];
 
   return (
     <Card className="p-3 bg-gray-900 border-gray-700">
@@ -311,7 +248,40 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
       {/* Gráfico otimizado para mobile */}
       <div className="h-[400px] w-full">
         {visibleData.length > 0 ? (
-          <CustomChart data={visibleData} />
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart 
+              data={visibleData} 
+              margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="1 1" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="index"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                tickFormatter={(value) => {
+                  const item = visibleData[value];
+                  return item ? new Date(item.time * 1000).toLocaleDateString('pt-BR') : '';
+                }}
+              />
+              <YAxis 
+                domain={yDomain}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                tickFormatter={(value) => `$${value.toFixed(0)}`}
+                width={60}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              
+              {/* Bar invisível para capturar dados */}
+              <Bar 
+                dataKey="high"
+                shape={<CustomCandleBar />}
+                fill="transparent"
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         ) : (
           <div className="h-full flex items-center justify-center bg-gray-800 rounded-lg">
             <div className="text-center">
