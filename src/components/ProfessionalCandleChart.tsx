@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { Card } from '@/components/ui/card';
@@ -10,7 +11,6 @@ interface ProfessionalCandleChartProps {
   currentIndex: number;
   currentCandle: CandleData | null;
   isActive: boolean;
-  // TODO: Add timeframe prop later
 }
 
 const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({ 
@@ -25,41 +25,37 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
 
   useEffect(() => {
     if (data.length > 0 && currentIndex >= 0) {
-      // TODO: Add logic here later to aggregate data based on selected timeframe
       const dataToShow = data.slice(0, currentIndex + 1);
       setVisibleData(dataToShow);
     } else {
       setVisibleData([]);
     }
-  }, [data, currentIndex]); // TODO: Add timeframe dependency later
+  }, [data, currentIndex]);
 
   useEffect(() => {
     if (visibleData.length > 0) {
-      // Prepara os dados para o formato do Plotly Candlestick
       const trace = {
-        x: visibleData.map(d => new Date(d.time * 1000)), // Converte timestamp para Date object
+        x: visibleData.map(d => new Date(d.time * 1000)),
         open: visibleData.map(d => d.open),
         high: visibleData.map(d => d.high),
         low: visibleData.map(d => d.low),
         close: visibleData.map(d => d.close),
         
-        // Estilo do candlestick
         increasing: { line: { color: '#0ECB81', width: 1 }, fillcolor: '#0ECB81' }, 
         decreasing: { line: { color: '#F6465D', width: 1 }, fillcolor: '#F6465D' },
-        line: { width: 1 }, // Largura do pavio (wick)
+        line: { width: 1 },
         
         type: 'candlestick',
         xaxis: 'x',
         yaxis: 'y',
-        name: 'Candles' // Nome para legenda (embora desativada)
+        name: 'Candles'
       };
 
       setPlotlyData([trace]);
 
-      // Configura o layout do gráfico
       const layout: Partial<Plotly.Layout> = {
-        dragmode: 'pan', // Permite arrastar/pan
-        margin: { l: 40, r: 60, t: 10, b: 40 }, // Ajusta margens
+        dragmode: 'pan',
+        margin: { l: 40, r: 60, t: 10, b: 40 },
         showlegend: false,
         xaxis: {
           autorange: true,
@@ -67,12 +63,10 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
           gridcolor: '#374151',
           linecolor: '#374151',
           tickfont: { color: '#9CA3AF', size: 10 },
-          fixedrange: false, // Permite zoom no eixo X
-          rangeslider: { visible: false }, // Esconde o range slider inferior
-          // Formata os ticks do eixo X para mostrar Hora:Minuto
-          tickformat: '%H:%M', 
-          // Melhora a exibição dos ticks de data/hora
-          nticks: 6, // Sugere um número de ticks (Plotly pode ajustar)
+          fixedrange: false,
+          rangeslider: { visible: false },
+          tickformat: '%H:%M',
+          nticks: 6,
         },
         yaxis: {
           autorange: true,
@@ -80,18 +74,17 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
           gridcolor: '#374151',
           linecolor: '#374151',
           tickfont: { color: '#9CA3AF', size: 10 },
-          side: 'right', // Eixo Y na direita
-          fixedrange: false, // Permite zoom no eixo Y
-          tickprefix: '$', // Adiciona prefixo $ aos ticks
+          side: 'right',
+          fixedrange: false,
+          tickprefix: '$',
         },
-        plot_bgcolor: '#111827', // Cor de fundo do plot (cinza escuro/azulado)
-        paper_bgcolor: '#1F2937', // Cor de fundo do card (cinza mais escuro)
-        font: { color: '#9CA3AF' }, // Cor da fonte padrão
+        plot_bgcolor: '#111827',
+        paper_bgcolor: '#1F2937',
+        font: { color: '#9CA3AF' },
       };
       setPlotlyLayout(layout);
 
     } else {
-      // Limpa os dados se não houver dados visíveis
       setPlotlyData([]);
       setPlotlyLayout({});
     }
@@ -109,7 +102,6 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
 
   return (
     <Card className="p-3 bg-gray-900 border-gray-700">
-      {/* Header (mantido) */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-yellow-500 rounded-md">
@@ -148,7 +140,6 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
         )}
       </div>
 
-      {/* Informações do candle atual (mantido) */}
       {currentCandle && (
         <div className="mb-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
           <div className="grid grid-cols-3 gap-3 text-xs">
@@ -190,18 +181,17 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
         </div>
       )}
 
-      {/* Gráfico com Plotly.js */}
       <div className="h-[400px] w-full">
         {visibleData.length > 0 ? (
           <Plot
             data={plotlyData}
             layout={plotlyLayout}
             style={{ width: '100%', height: '100%' }}
-            useResizeHandler={true} // Habilita o redimensionamento automático
+            useResizeHandler={true}
             config={{
-              displaylogo: false, // Remove o logo do Plotly
-              displayModeBar: false, // Esconde a barra de modo completamente
-              scrollZoom: true // Permite zoom com scroll/pinch
+              displaylogo: false,
+              displayModeBar: false,
+              scrollZoom: true
             }}
           />
         ) : (

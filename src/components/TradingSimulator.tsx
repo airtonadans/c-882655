@@ -1,20 +1,20 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, Square, RotateCcw, Heart, Upload, ChevronsUpDown, Settings } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ProfessionalCandleChart from './ProfessionalCandleChart'; // Importa o gráfico
-import { AdvancedMarketGenerator, CandleData } from '../utils/advancedMarketGenerator'; // Importa o gerador e tipo
+import ProfessionalCandleChart from './ProfessionalCandleChart';
+import { AdvancedMarketGenerator, CandleData } from '../utils/advancedMarketGenerator';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select" // Importa o Select
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,10 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog" // Importa o Dialog para configurações
+} from "@/components/ui/dialog"
 
-const MAX_SESSIONS_DEFAULT = 5; // Limite inicial de pregões armazenados
-const AVAILABLE_TIMEFRAMES = ['1min', '2min', '5min', '10min']; // Timeframes disponíveis
+const MAX_SESSIONS_DEFAULT = 5;
+const AVAILABLE_TIMEFRAMES = ['1min', '2min', '5min', '10min'];
 const DEFAULT_TIMEFRAME = '5min';
 
 const TradingSimulator = () => {
@@ -38,8 +38,7 @@ const TradingSimulator = () => {
   const [initialBalance, setInitialBalance] = useState('10000');
   const [finalBalance, setFinalBalance] = useState('10000');
 
-  // Estados para gerenciamento de pregões
-  const [tradingSessions, setTradingSessions] = useState<Record<string, CandleData[][]>>({}); // Armazena por timeframe
+  const [tradingSessions, setTradingSessions] = useState<Record<string, CandleData[][]>>({});
   const [currentSessionIndex, setCurrentSessionIndex] = useState<number>(0);
   const [maxSessions, setMaxSessions] = useState<number>(MAX_SESSIONS_DEFAULT);
   const [tempMaxSessions, setTempMaxSessions] = useState<string>(MAX_SESSIONS_DEFAULT.toString());
@@ -49,12 +48,10 @@ const TradingSimulator = () => {
   const marketGenerator = useRef<AdvancedMarketGenerator | null>(null);
   const simulationInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Função para obter o array de sessões para o timeframe atual
   const getCurrentTimeframeSessions = useCallback(() => {
     return tradingSessions[timeframe] || [];
   }, [tradingSessions, timeframe]);
 
-  // Função para gerar um novo pregão PARA TODOS os timeframes
   const generateAndAddNewSessionForAllTimeframes = useCallback(() => {
     if (!marketGenerator.current) {
       marketGenerator.current = new AdvancedMarketGenerator();
@@ -64,16 +61,13 @@ const TradingSimulator = () => {
 
     const newSessionsForAllTimeframes: Record<string, CandleData[][]> = {};
 
-    // Gera dados para cada timeframe disponível
     AVAILABLE_TIMEFRAMES.forEach(tf => {
         const intervalMinutes = parseInt(tf.replace('min', ''), 10);
         const newSessionData = marketGenerator.current!.generateTradingSession(intervalMinutes);
         
-        // Pega as sessões existentes para este timeframe ou inicializa
         const existingSessionsForTf = tradingSessions[tf] || [];
         let updatedSessionsForTf = [...existingSessionsForTf];
 
-        // Aplica a lógica de limite cíclico
         if (updatedSessionsForTf.length >= maxSessions) {
             updatedSessionsForTf = [...updatedSessionsForTf.slice(1), newSessionData];
         } else {
@@ -84,23 +78,19 @@ const TradingSimulator = () => {
 
     setTradingSessions(newSessionsForAllTimeframes);
 
-    // Define o índice da nova sessão (será o mesmo para todos os timeframes)
     const currentSessionsForDefaultTf = newSessionsForAllTimeframes[DEFAULT_TIMEFRAME] || [];
     setCurrentSessionIndex(currentSessionsForDefaultTf.length - 1);
     resetSimulationState();
 
   }, [maxSessions, tradingSessions]);
 
-  // Gera o primeiro pregão ao montar o componente
   useEffect(() => {
-    // Verifica se já existe alguma sessão para o timeframe padrão
     if (!tradingSessions[DEFAULT_TIMEFRAME] || tradingSessions[DEFAULT_TIMEFRAME].length === 0) {
       generateAndAddNewSessionForAllTimeframes();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reseta o estado da simulação
   const resetSimulationState = () => {
     setIsPlaying(false);
     if (simulationInterval.current) {
@@ -112,7 +102,6 @@ const TradingSimulator = () => {
     setFinalBalance(initialBalance);
   };
 
-  // Lógica da simulação
   const advanceSimulation = useCallback(() => {
     const currentSessions = getCurrentTimeframeSessions();
     if (!currentSessions[currentSessionIndex]) return;
@@ -134,7 +123,6 @@ const TradingSimulator = () => {
     });
   }, [getCurrentTimeframeSessions, currentSessionIndex]);
 
-  // Controla o intervalo da simulação
   useEffect(() => {
     if (isPlaying) {
       if (simulationInterval.current) clearInterval(simulationInterval.current);
@@ -147,7 +135,6 @@ const TradingSimulator = () => {
     return () => { if (simulationInterval.current) clearInterval(simulationInterval.current); };
   }, [isPlaying, speed, advanceSimulation]);
 
-  // Handlers
   const handlePlayPause = () => {
     const currentSessions = getCurrentTimeframeSessions();
     const currentSession = currentSessions[currentSessionIndex];
@@ -161,7 +148,6 @@ const TradingSimulator = () => {
   const handleRestart = resetSimulationState;
   const handleNovoPregao = generateAndAddNewSessionForAllTimeframes;
 
-  // Handler para seleção de pregão no dropdown
   const handleSessionSelect = (value: string) => {
     const index = parseInt(value, 10);
     const currentSessions = getCurrentTimeframeSessions();
@@ -171,25 +157,17 @@ const TradingSimulator = () => {
     }
   };
   
-  // Handler para mudança de timeframe
   const handleTimeframeChange = (newTimeframe: string) => {
       if (newTimeframe && AVAILABLE_TIMEFRAMES.includes(newTimeframe)) {
           setTimeframe(newTimeframe);
-          resetSimulationState(); // Reseta a simulação ao mudar timeframe
-          // Verifica se já existem dados para este timeframe, se não, gera
-          // Nota: A geração inicial já cria para todos, então isso pode não ser necessário
-          // if (!tradingSessions[newTimeframe] || tradingSessions[newTimeframe].length === 0) {
-          //   // Idealmente, buscaria dados ou geraria especificamente, mas a lógica atual já gera todos
-          // }
+          resetSimulationState();
       }
   };
 
-  // Handler para salvar configurações
   const handleSaveChanges = () => {
     const newLimit = parseInt(tempMaxSessions, 10);
     if (!isNaN(newLimit) && newLimit > 0) {
       setMaxSessions(newLimit);
-      // Ajusta a lista de sessões para CADA timeframe
       const updatedSessionsByTf: Record<string, CandleData[][]> = {};
       let maxIndexAffected = -1;
 
@@ -198,16 +176,14 @@ const TradingSimulator = () => {
           if (prevSessions.length > newLimit) {
               const sessionsToKeep = prevSessions.slice(prevSessions.length - newLimit);
               updatedSessionsByTf[tf] = sessionsToKeep;
-              // Calcula o índice máximo que foi removido para ajustar o currentSessionIndex
               maxIndexAffected = Math.max(maxIndexAffected, prevSessions.length - newLimit -1);
           } else {
               updatedSessionsByTf[tf] = prevSessions;
           }
       });
       setTradingSessions(updatedSessionsByTf);
-      // Ajusta o índice da sessão atual se ele foi removido
       if (currentSessionIndex <= maxIndexAffected) {
-          setCurrentSessionIndex(0); // Volta para o primeiro índice válido
+          setCurrentSessionIndex(0);
       }
 
     } else {
@@ -215,24 +191,21 @@ const TradingSimulator = () => {
     }
   };
 
-  // Dados para o gráfico (baseado no timeframe e índice de sessão atuais)
   const currentSessionsForTimeframe = getCurrentTimeframeSessions();
   const currentSessionData = currentSessionsForTimeframe[currentSessionIndex] || [];
   const numberOfSessionsAvailable = currentSessionsForTimeframe.length;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300 p-4 space-y-4">
-      {/* Header Controls */}
       <Card className="p-4 bg-gray-900 border-gray-700">
         <div className="flex flex-col space-y-4">
-          {/* Timeframe Selection */}
           <div>
             <Label className="text-sm font-medium mb-2 block text-gray-400">Timeframe</Label>
             <ToggleGroup 
               type="single" 
               value={timeframe} 
-              onValueChange={handleTimeframeChange} // Usa o novo handler
-              className="grid grid-cols-4 gap-2" // Ajusta para 4 colunas
+              onValueChange={handleTimeframeChange}
+              className="grid grid-cols-4 gap-2"
             >
               {AVAILABLE_TIMEFRAMES.map((tf) => (
                 <ToggleGroupItem key={tf} value={tf} className="text-gray-400 border-gray-600 data-[state=on]:bg-blue-600 data-[state=on]:text-white hover:bg-gray-700">
@@ -242,13 +215,10 @@ const TradingSimulator = () => {
             </ToggleGroup>
           </div>
 
-          {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-2">
-            {/* Botão Novo Pregão */}
             <Button onClick={handleNovoPregao} variant="outline" className="text-sm border-gray-600 text-gray-300 hover:bg-gray-700">
               Novo Pregão
             </Button>
-            {/* Seletor de Pregão */}
             <Select 
               value={currentSessionIndex.toString()} 
               onValueChange={handleSessionSelect}
@@ -273,18 +243,15 @@ const TradingSimulator = () => {
         </div>
       </Card>
 
-      {/* Chart Area */}
       <ProfessionalCandleChart
-        data={currentSessionData} // Passa os dados do timeframe/sessão atual
+        data={currentSessionData}
         currentIndex={currentCandleIndex}
         currentCandle={currentCandleData}
         isActive={isPlaying || currentCandleIndex >= 0}
       />
 
-      {/* Trading Controls */}
       <Card className="p-4 bg-gray-900 border-gray-700">
         <div className="space-y-4">
-          {/* Balance and Contracts */}
            <div className="grid grid-cols-1 gap-4">
             <div>
               <Label htmlFor="contracts" className="text-sm font-medium text-gray-400">Quantidade de Contratos</Label>
@@ -322,7 +289,6 @@ const TradingSimulator = () => {
             </div>
           </div>
 
-          {/* Control Buttons */}
           <div className="grid grid-cols-4 gap-2">
             <Button
               onClick={handlePlayPause}
@@ -338,7 +304,6 @@ const TradingSimulator = () => {
             <Button onClick={handleRestart} variant="outline" size="sm" className="flex items-center justify-center border-gray-600 text-gray-300 hover:bg-blue-700">
               <RotateCcw className="w-4 h-4" />
             </Button>
-            {/* Botão Configurações */}
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700">
@@ -383,7 +348,6 @@ const TradingSimulator = () => {
             </Dialog>
           </div>
 
-          {/* Speed Controls */}
            <div>
             <Label className="text-sm font-medium mb-2 block text-gray-400">Velocidade</Label>
             <ToggleGroup type="single" value={speed} onValueChange={setSpeed} className="grid grid-cols-4 gap-2">
@@ -397,7 +361,6 @@ const TradingSimulator = () => {
         </div>
       </Card>
 
-      {/* Status Bar */}
       <Card className="p-3 bg-gray-900 border-gray-700">
         <div className="flex justify-between items-center text-sm">
           <div className="flex items-center space-x-4">
@@ -407,7 +370,7 @@ const TradingSimulator = () => {
             <span className="text-gray-500">Velocidade: {speed}</span>
             <span className="text-gray-500">Candle: {currentCandleIndex >= 0 ? currentCandleIndex + 1 : 0} / {currentSessionData.length}</span>
             <span className="text-gray-500">Pregão: {currentSessionIndex + 1} / {numberOfSessionsAvailable}</span>
-            <span className="text-gray-500">Timeframe: {timeframe}</span> {/* Mostra timeframe atual */}
+            <span className="text-gray-500">Timeframe: {timeframe}</span>
           </div>
           <div className="text-right">
             <div className="text-xs text-gray-500">P&L</div>
