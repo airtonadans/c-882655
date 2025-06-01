@@ -1,7 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { CandleData } from '../utils/advancedMarketGenerator';
-import { generateAdvancedMarketData } from '../utils/advancedMarketGenerator';
+import { CandleData, AdvancedMarketGenerator } from '../utils/advancedMarketGenerator';
 
 export interface ReplayState {
   data: CandleData[];
@@ -34,10 +33,18 @@ export const useReplaySystem = () => {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const onCandleUpdateRef = useRef<((candle: CandleData, index: number) => void) | null>(null);
+  const marketGenerator = useRef<AdvancedMarketGenerator | null>(null);
 
   const generateNewScenario = useCallback(() => {
     console.log('Generating new market scenario...');
-    const newData = generateAdvancedMarketData();
+    
+    if (!marketGenerator.current) {
+      marketGenerator.current = new AdvancedMarketGenerator();
+    } else {
+      marketGenerator.current.generateNewScenario();
+    }
+    
+    const newData = marketGenerator.current.generateTradingSession(5); // 5-minute candles
     
     setState(prev => ({
       ...prev,
@@ -201,7 +208,7 @@ export const useReplaySystem = () => {
     if (state.data.length === 0) {
       generateNewScenario();
     }
-  }, []);
+  }, [generateNewScenario]);
 
   return {
     state,
