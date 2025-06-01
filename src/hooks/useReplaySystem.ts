@@ -1,296 +1,206 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { AdvancedMarketGenerator, CandleData } from '../utils/advancedMarketGenerator';
 
-export interface ReplaySystemState {
-  isActive: boolean;
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { CandleData } from '../utils/advancedMarketGenerator';
+import { generateAdvancedMarketData } from '../utils/advancedMarketGenerator';
+
+export interface ReplayState {
+  data: CandleData[];
+  currentIndex: number;
+  totalCandles: number;
   isPlaying: boolean;
   isPaused: boolean;
-  currentIndex: number;
-  data: CandleData[];
+  isActive: boolean;
   speed: number;
   progress: number;
   currentCandle: CandleData | null;
-  totalCandles: number;
-  marketSentiment: string;
-  marketPhase: string;
+  marketSentiment: 'bullish' | 'bearish' | 'neutral';
+  marketPhase: 'trending' | 'consolidation' | 'volatile';
 }
 
 export const useReplaySystem = () => {
-  const [state, setState] = useState<ReplaySystemState>({
-    isActive: false,
+  const [state, setState] = useState<ReplayState>({
+    data: [],
+    currentIndex: -1,
+    totalCandles: 0,
     isPlaying: false,
     isPaused: false,
-    currentIndex: 0,
-    data: [],
+    isActive: false,
     speed: 1,
     progress: 0,
     currentCandle: null,
-    totalCandles: 0,
-    marketSentiment: 'sideways',
-    marketPhase: 'opening'
+    marketSentiment: 'neutral',
+    marketPhase: 'consolidation'
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const onUpdateRef = useRef<((candle: CandleData) => void) | null>(null);
-  const generatorRef = useRef<AdvancedMarketGenerator>(new AdvancedMarketGenerator());
-
-  const calculateInterval = (speed: number) => {
-    return Math.max(50, 1000 / speed);
-  };
+  const onCandleUpdateRef = useRef<((candle: CandleData, index: number) => void) | null>(null);
 
   const generateNewScenario = useCallback(() => {
-    console.log('Gerando novo cenário de mercado...');
-    
-    // Parar qualquer replay em andamento
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
-    // Gerar novo cenário
-    generatorRef.current.generateNewScenario();
-    const newData = generatorRef.current.generateTradingSession(5); // 5 minutos por candle
+    console.log('Generating new market scenario...');
+    const newData = generateAdvancedMarketData();
     
     setState(prev => ({
       ...prev,
-      isActive: false,
-      isPlaying: false,
-      isPaused: false,
-      currentIndex: 0,
       data: newData,
       totalCandles: newData.length,
-      currentCandle: newData[0] || null,
+      currentIndex: -1,
       progress: 0,
-      marketSentiment: generatorRef.current.getCurrentSentiment(),
-      marketPhase: generatorRef.current.getCurrentPhase()
+      isActive: true,
+      currentCandle: null
     }));
-    
-    console.log(`Novo cenário gerado com ${newData.length} candles`);
-    console.log(`Sentimento: ${generatorRef.current.getCurrentSentiment()}`);
-    console.log(`Fase: ${generatorRef.current.getCurrentPhase()}`);
   }, []);
 
-  const startReplay = useCallback((speed: number) => {
-    console.log('Iniciando replay com velocidade:', speed);
+  const loadRealData = useCallback((realData: any[]) => {
+    console.log('Loading real data into replay system:', realData.length, 'records');
     
-    // Se não há dados, gerar novo cenário primeiro
-    if (state.data.length === 0) {
-      console.log('Gerando cenário antes de iniciar replay...');
-      const newData = generatorRef.current.generateTradingSession(5);
-      setState(prev => ({
-        ...prev,
-        data: newData,
-        totalCandles: newData.length,
-        currentCandle: newData[0] || null,
-        marketSentiment: generatorRef.current.getCurrentSentiment(),
-        marketPhase: generatorRef.current.getCurrentPhase()
-      }));
-    }
+    // Convert real data format to CandleData format
+    const convertedData: CandleData[] = realData.map((item, index) => ({
+      time: item.time,
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close,
+      volume: item.volume || 0
+    }));
 
     setState(prev => ({
       ...prev,
+      data: convertedData,
+      totalCandles: convertedData.length,
+      currentIndex: -1,
+      progress: 0,
       isActive: true,
-      isPlaying: true,
-      isPaused: false,
-      speed,
-      currentIndex: prev.currentIndex || 0
+      currentCandle: null,
+      marketSentiment: 'neutral',
+      marketPhase: 'trending'
     }));
+  }, []);
 
-    // Iniciar reprodução
-    let currentIndex = state.currentIndex || 0;
-    const dataToUse = state.data.length > 0 ? state.data : generatorRef.current.generateTradingSession(5);
-    
+  const startReplay = useCallback(() => {
+    if (state.data.length === 0) {
+      generateNewScenario();
+      return;
+    }
+
+    setState(prev => ({ ...prev, isPlaying: true, isPaused: false }));
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     intervalRef.current = setInterval(() => {
-      currentIndex++;
-      
-      if (currentIndex < dataToUse.length) {
-        const currentCandle = dataToUse[currentIndex];
-        const progress = (currentIndex / dataToUse.length) * 100;
-        
-        setState(prev => ({
-          ...prev,
-          currentIndex,
-          currentCandle,
-          progress
-        }));
+      setState(prev => {
+        if (prev.currentIndex >= prev.totalCandles - 1) {
+          return { ...prev, isPlaying: false };
+        }
 
-        // Notificar callback
-        if (onUpdateRef.current && currentCandle) {
-          onUpdateRef.current(currentCandle);
+        const nextIndex = prev.currentIndex + 1;
+        const nextCandle = prev.data[nextIndex];
+        const progress = ((nextIndex + 1) / prev.totalCandles) * 100;
+
+        // Determine market sentiment based on price movement
+        let sentiment: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+        if (nextCandle && nextIndex > 0) {
+          const prevCandle = prev.data[nextIndex - 1];
+          if (nextCandle.close > prevCandle.close) {
+            sentiment = 'bullish';
+          } else if (nextCandle.close < prevCandle.close) {
+            sentiment = 'bearish';
+          }
         }
-      } else {
-        // Replay finalizado
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
+
+        // Call the update callback if it exists
+        if (onCandleUpdateRef.current && nextCandle) {
+          onCandleUpdateRef.current(nextCandle, nextIndex);
         }
-        setState(prev => ({
+
+        return {
           ...prev,
-          isPlaying: false,
-          isPaused: false,
-          progress: 100
-        }));
-        console.log('Replay concluído');
-      }
-    }, calculateInterval(speed));
-  }, [state.data, state.currentIndex]);
+          currentIndex: nextIndex,
+          progress,
+          currentCandle: nextCandle,
+          marketSentiment: sentiment
+        };
+      });
+    }, Math.max(50, 1000 / state.speed));
+  }, [state.data.length, state.speed, generateNewScenario]);
 
   const pauseReplay = useCallback(() => {
+    setState(prev => ({ ...prev, isPlaying: false, isPaused: true }));
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    
-    setState(prev => {
-      const newPaused = !prev.isPaused;
-      
-      // Se vai continuar (não pausado), reiniciar intervalo
-      if (!newPaused && prev.isPlaying) {
-        let currentIndex = prev.currentIndex;
-        
-        intervalRef.current = setInterval(() => {
-          currentIndex++;
-          
-          if (currentIndex < prev.data.length) {
-            const currentCandle = prev.data[currentIndex];
-            const progress = (currentIndex / prev.data.length) * 100;
-            
-            setState(current => ({
-              ...current,
-              currentIndex,
-              currentCandle,
-              progress
-            }));
-
-            if (onUpdateRef.current && currentCandle) {
-              onUpdateRef.current(currentCandle);
-            }
-          } else {
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current);
-              intervalRef.current = null;
-            }
-            setState(current => ({
-              ...current,
-              isPlaying: false,
-              isPaused: false,
-              progress: 100
-            }));
-          }
-        }, calculateInterval(prev.speed));
-      }
-      
-      return { ...prev, isPaused: newPaused };
-    });
   }, []);
 
   const stopReplay = useCallback(() => {
+    setState(prev => ({ 
+      ...prev, 
+      isPlaying: false, 
+      isPaused: false,
+      currentIndex: -1,
+      progress: 0,
+      currentCandle: null
+    }));
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    
-    setState(prev => ({
-      ...prev,
-      isPlaying: false,
-      isPaused: false,
-      currentIndex: 0,
-      progress: 0,
-      currentCandle: prev.data[0] || null
-    }));
   }, []);
 
   const resetReplay = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
-    setState({
-      isActive: false,
-      isPlaying: false,
-      isPaused: false,
-      currentIndex: 0,
-      data: [],
-      speed: 1,
-      progress: 0,
-      currentCandle: null,
-      totalCandles: 0,
-      marketSentiment: 'sideways',
-      marketPhase: 'opening'
-    });
-  }, []);
+    stopReplay();
+    generateNewScenario();
+  }, [stopReplay, generateNewScenario]);
 
   const changeSpeed = useCallback((newSpeed: number) => {
     setState(prev => ({ ...prev, speed: newSpeed }));
     
-    // Se estiver reproduzindo, reiniciar com nova velocidade
-    if (state.isPlaying && !state.isPaused && intervalRef.current) {
+    if (state.isPlaying && intervalRef.current) {
       clearInterval(intervalRef.current);
       
-      let currentIndex = state.currentIndex;
       intervalRef.current = setInterval(() => {
-        currentIndex++;
-        
-        if (currentIndex < state.data.length) {
-          const currentCandle = state.data[currentIndex];
-          const progress = (currentIndex / state.data.length) * 100;
-          
-          setState(current => ({
-            ...current,
-            currentIndex,
-            currentCandle,
-            progress
-          }));
-
-          if (onUpdateRef.current && currentCandle) {
-            onUpdateRef.current(currentCandle);
+        setState(prev => {
+          if (prev.currentIndex >= prev.totalCandles - 1) {
+            return { ...prev, isPlaying: false };
           }
-        } else {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
+
+          const nextIndex = prev.currentIndex + 1;
+          const nextCandle = prev.data[nextIndex];
+          const progress = ((nextIndex + 1) / prev.totalCandles) * 100;
+
+          if (onCandleUpdateRef.current && nextCandle) {
+            onCandleUpdateRef.current(nextCandle, nextIndex);
           }
-          setState(current => ({
-            ...current,
-            isPlaying: false,
-            isPaused: false,
-            progress: 100
-          }));
-        }
-      }, calculateInterval(newSpeed));
+
+          return {
+            ...prev,
+            currentIndex: nextIndex,
+            progress,
+            currentCandle: nextCandle
+          };
+        });
+      }, Math.max(50, 1000 / newSpeed));
     }
-  }, [state.isPlaying, state.isPaused, state.currentIndex, state.data]);
+  }, [state.isPlaying]);
 
-  const jumpToPosition = useCallback((position: number) => {
-    if (position < 0 || position >= state.data.length) return;
-    
-    const currentCandle = state.data[position];
-    const progress = (position / state.data.length) * 100;
-    
-    setState(prev => ({
-      ...prev,
-      currentIndex: position,
-      currentCandle,
-      progress
-    }));
-
-    if (onUpdateRef.current && currentCandle) {
-      onUpdateRef.current(currentCandle);
-    }
-  }, [state.data]);
-
-  const setOnCandleUpdate = useCallback((callback: (candle: CandleData) => void) => {
-    onUpdateRef.current = callback;
+  const setOnCandleUpdate = useCallback((callback: (candle: CandleData, index: number) => void) => {
+    onCandleUpdateRef.current = callback;
   }, []);
 
-  // Cleanup na desmontagem
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
+  }, []);
+
+  // Initialize with generated data if empty
+  useEffect(() => {
+    if (state.data.length === 0) {
+      generateNewScenario();
+    }
   }, []);
 
   return {
@@ -300,8 +210,8 @@ export const useReplaySystem = () => {
     stopReplay,
     resetReplay,
     changeSpeed,
-    jumpToPosition,
     setOnCandleUpdate,
-    generateNewScenario
+    generateNewScenario,
+    loadRealData
   };
 };

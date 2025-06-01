@@ -1,0 +1,121 @@
+
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export interface RealMarketDataHook {
+  isLoading: boolean;
+  availableRanges: any[];
+  fetchKaggleData: (params: FetchDataParams) => Promise<void>;
+  getMarketData: (params: GetMarketDataParams) => Promise<any[]>;
+  refreshAvailableRanges: () => Promise<void>;
+}
+
+export interface FetchDataParams {
+  symbol?: string;
+  startDate: string;
+  endDate: string;
+  apiKey?: string;
+}
+
+export interface GetMarketDataParams {
+  symbol?: string;
+  timeframe?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}
+
+export const useRealMarketData = (): RealMarketDataHook => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableRanges, setAvailableRanges] = useState<any[]>([]);
+
+  const fetchKaggleData = useCallback(async (params: FetchDataParams) => {
+    setIsLoading(true);
+    try {
+      console.log('Fetching Kaggle data with params:', params);
+      
+      const { data, error } = await supabase.functions.invoke('fetch-kaggle-data', {
+        body: {
+          symbol: params.symbol || 'XAUUSD',
+          startDate: params.startDate,
+          endDate: params.endDate,
+          apiKey: params.apiKey
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast.success(`Dados carregados com sucesso! ${data.tickCount} ticks importados.`);
+        await refreshAvailableRanges();
+      } else {
+        throw new Error(data?.error || 'Erro desconhecido ao buscar dados');
+      }
+
+    } catch (error: any) {
+      console.error('Error fetching Kaggle data:', error);
+      toast.error(`Erro ao buscar dados: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const getMarketData = useCallback(async (params: GetMarketDataParams = {}) => {
+    try {
+      console.log('Getting market data with params:', params);
+      
+      const queryParams = new URLSearchParams();
+      if (params.symbol) queryParams.append('symbol', params.symbol);
+      if (params.timeframe) queryParams.append('timeframe', params.timeframe);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+
+      const { data, error } = await supabase.functions.invoke('get-market-data?' + queryParams.toString());
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        return data.data || [];
+      } else {
+        throw new Error(data?.error || 'Erro ao obter dados do mercado');
+      }
+
+    } catch (error: any) {
+      console.error('Error getting market data:', error);
+      toast.error(`Erro ao obter dados: ${error.message}`);
+      return [];
+    }
+  }, []);
+
+  const refreshAvailableRanges = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('available_data_ranges')
+        .select('*')
+        .order('last_updated', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setAvailableRanges(data || []);
+    } catch (error: any) {
+      console.error('Error refreshing available ranges:', error);
+      toast.error(`Erro ao buscar intervalos disponíveis: ${error.message}`);
+    }
+  }, []);
+
+  return {
+    isLoading,
+    availableRanges,
+    fetchKaggleData,
+    getMarketData,
+    refreshAvailableRanges
+  };
+};

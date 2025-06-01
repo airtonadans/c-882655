@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import ProfessionalReplayControls from './ProfessionalReplayControls';
 import ProfessionalCandleChart from './ProfessionalCandleChart';
+import RealDataControls from './RealDataControls';
 import { useReplaySystem } from '../hooks/useReplaySystem';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Activity, BarChart3, Zap } from 'lucide-react';
+import { TrendingUp, Activity, BarChart3, Zap, Database } from 'lucide-react';
 
 export interface Trade {
   id: string;
@@ -27,6 +28,7 @@ export interface SimulationData {
 
 const CryptoStrategySimulator = () => {
   const [activeTab, setActiveTab] = useState('replay');
+  const [dataSource, setDataSource] = useState<'simulated' | 'real'>('simulated');
   const [simulationData] = useState<SimulationData>({
     trades: [],
     totalOperations: 0,
@@ -44,8 +46,20 @@ const CryptoStrategySimulator = () => {
     resetReplay,
     changeSpeed,
     setOnCandleUpdate,
-    generateNewScenario
+    generateNewScenario,
+    loadRealData
   } = useReplaySystem();
+
+  const handleRealDataLoaded = (data: any[]) => {
+    console.log('Loading real data into simulator:', data.length, 'records');
+    loadRealData(data);
+    setDataSource('real');
+  };
+
+  const handleGenerateNewScenario = () => {
+    generateNewScenario();
+    setDataSource('simulated');
+  };
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -68,9 +82,22 @@ const CryptoStrategySimulator = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              <Badge className="bg-yellow-600 text-black text-xs">
-                <Zap className="w-3 h-3 mr-1" />
-                Pro
+              <Badge className={`text-xs ${
+                dataSource === 'real' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-blue-600 text-white'
+              }`}>
+                {dataSource === 'real' ? (
+                  <>
+                    <Database className="w-3 h-3 mr-1" />
+                    Dados Reais
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3 h-3 mr-1" />
+                    Simulado
+                  </>
+                )}
               </Badge>
             </div>
           </div>
@@ -81,13 +108,20 @@ const CryptoStrategySimulator = () => {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6">
-            <TabsList className="grid grid-cols-2 bg-gray-800 border border-gray-700 p-1 w-full max-w-md">
+            <TabsList className="grid grid-cols-3 bg-gray-800 border border-gray-700 p-1 w-full max-w-lg">
               <TabsTrigger 
                 value="replay" 
                 className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
               >
                 <BarChart3 className="w-4 h-4" />
                 Replay
+              </TabsTrigger>
+              <TabsTrigger 
+                value="data"
+                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
+              >
+                <Database className="w-4 h-4" />
+                Dados
               </TabsTrigger>
               <TabsTrigger 
                 value="strategy"
@@ -107,7 +141,7 @@ const CryptoStrategySimulator = () => {
               onStopReplay={stopReplay}
               onResetReplay={resetReplay}
               onSpeedChange={changeSpeed}
-              onGenerateNewScenario={generateNewScenario}
+              onGenerateNewScenario={handleGenerateNewScenario}
               isPlaying={replayState.isPlaying}
               isPaused={replayState.isPaused}
               currentSpeed={replayState.speed}
@@ -170,6 +204,10 @@ const CryptoStrategySimulator = () => {
                 </div>
               </Card>
             </div>
+          </TabsContent>
+          
+          <TabsContent value="data" className="space-y-6">
+            <RealDataControls onDataLoaded={handleRealDataLoaded} />
           </TabsContent>
           
           <TabsContent value="strategy" className="space-y-6">
