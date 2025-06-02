@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
 import ProfessionalCandleChart from './ProfessionalCandleChart';
 import ReplayModeControls from './ReplayModeControls';
 import HistoryModeControls from './HistoryModeControls';
+import DataSourceManager from './DataSourceManager';
 import { useReplayData } from '../hooks/useReplayData';
 import { useHistoryData } from '../hooks/useHistoryData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -104,7 +104,7 @@ const CryptoStrategySimulator = () => {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6">
-            <TabsList className="grid grid-cols-3 bg-gray-800 border border-gray-700 p-1 w-full max-w-lg">
+            <TabsList className="grid grid-cols-4 bg-gray-800 border border-gray-700 p-1 w-full max-w-2xl">
               <TabsTrigger 
                 value="replay" 
                 className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
@@ -118,6 +118,13 @@ const CryptoStrategySimulator = () => {
               >
                 <History className="w-4 h-4" />
                 Histórico
+              </TabsTrigger>
+              <TabsTrigger 
+                value="data"
+                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
+              >
+                <Database className="w-4 h-4" />
+                Dados
               </TabsTrigger>
               <TabsTrigger 
                 value="strategy"
@@ -232,6 +239,10 @@ const CryptoStrategySimulator = () => {
                 </Badge>
               </Card>
             )}
+          </TabsContent>
+          
+          <TabsContent value="data" className="space-y-6">
+            <DataSourceManager />
           </TabsContent>
           
           <TabsContent value="strategy" className="space-y-6">
