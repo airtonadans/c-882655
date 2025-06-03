@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRealMarketData } from './useRealMarketData';
 import { CandleData } from '../utils/advancedMarketGenerator';
@@ -33,7 +32,6 @@ export const useReplayData = () => {
     console.log('Loading replay data for date:', date, 'timeframe:', timeframe);
     
     try {
-      // Calculate end date as same day for replay mode
       const startDate = date;
       const endDate = date;
       
@@ -44,22 +42,49 @@ export const useReplayData = () => {
         timeframe,
         startDate,
         endDate,
-        limit: 500 // Reasonable limit for replay mode
+        limit: 500
       });
 
       console.log(`Received ${data.length} records for replay`);
 
       if (data && data.length > 0) {
-        const convertedData: CandleData[] = data.map(item => ({
-          time: item.time || (new Date(item.timestamp).getTime() / 1000),
-          open: parseFloat(item.open.toString()),
-          high: parseFloat(item.high.toString()),
-          low: parseFloat(item.low.toString()),
-          close: parseFloat(item.close.toString()),
-          volume: item.volume || 0
-        }));
+        // Validate and convert data
+        const convertedData: CandleData[] = data
+          .filter(item => {
+            // Validate required fields
+            const hasRequiredFields = item.time && item.open && item.high && item.low && item.close;
+            const hasValidNumbers = 
+              !isNaN(parseFloat(item.open.toString())) &&
+              !isNaN(parseFloat(item.high.toString())) &&
+              !isNaN(parseFloat(item.low.toString())) &&
+              !isNaN(parseFloat(item.close.toString()));
+            
+            if (!hasRequiredFields || !hasValidNumbers) {
+              console.warn('Invalid data item:', item);
+              return false;
+            }
+            return true;
+          })
+          .map(item => {
+            const timestamp = item.time || (new Date(item.timestamp).getTime() / 1000);
+            
+            return {
+              time: timestamp,
+              open: parseFloat(item.open.toString()),
+              high: parseFloat(item.high.toString()),
+              low: parseFloat(item.low.toString()),
+              close: parseFloat(item.close.toString()),
+              volume: item.volume || 0
+            };
+          })
+          .sort((a, b) => a.time - b.time); // Ensure chronological order
 
-        console.log(`Converted ${convertedData.length} candles for replay`);
+        console.log(`Converted and validated ${convertedData.length} candles for replay`);
+        console.log('Sample data:', convertedData.slice(0, 3));
+
+        if (convertedData.length === 0) {
+          throw new Error(`Nenhum dado válido encontrado para ${date}.`);
+        }
 
         setState(prev => ({
           ...prev,

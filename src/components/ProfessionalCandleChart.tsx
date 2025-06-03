@@ -23,9 +23,34 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
   const [plotlyData, setPlotlyData] = useState<any[]>([]);
   const [plotlyLayout, setPlotlyLayout] = useState<Partial<Plotly.Layout>>({});
 
+  // Debug logs
   useEffect(() => {
-    if (data.length > 0 && currentIndex >= 0) {
-      const dataToShow = data.slice(0, currentIndex + 1);
+    console.log('ProfessionalCandleChart - Data received:', {
+      dataLength: data.length,
+      currentIndex,
+      firstItem: data[0],
+      lastItem: data[data.length - 1]
+    });
+  }, [data, currentIndex]);
+
+  useEffect(() => {
+    if (data.length > 0) {
+      let dataToShow: CandleData[];
+      
+      if (currentIndex >= 0) {
+        // Replay mode - show data up to current index
+        dataToShow = data.slice(0, currentIndex + 1);
+      } else {
+        // History mode - show all data
+        dataToShow = data;
+      }
+      
+      console.log('Setting visible data:', {
+        totalData: data.length,
+        currentIndex,
+        visibleLength: dataToShow.length
+      });
+      
       setVisibleData(dataToShow);
     } else {
       setVisibleData([]);
@@ -34,42 +59,102 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
 
   useEffect(() => {
     if (visibleData.length > 0) {
+      console.log('Processing visible data for chart:', {
+        length: visibleData.length,
+        sample: visibleData.slice(0, 3).map(d => ({
+          time: d.time,
+          timestamp: new Date(d.time * 1000).toISOString(),
+          ohlc: [d.open, d.high, d.low, d.close]
+        }))
+      });
+
+      // Validate and clean data
+      const validData = visibleData.filter(d => 
+        d && 
+        typeof d.time === 'number' && 
+        typeof d.open === 'number' && 
+        typeof d.high === 'number' && 
+        typeof d.low === 'number' && 
+        typeof d.close === 'number' &&
+        !isNaN(d.time) &&
+        !isNaN(d.open) &&
+        !isNaN(d.high) &&
+        !isNaN(d.low) &&
+        !isNaN(d.close)
+      );
+
+      console.log(`Filtered ${validData.length} valid data points from ${visibleData.length}`);
+
+      if (validData.length === 0) {
+        console.warn('No valid data points found');
+        setPlotlyData([]);
+        return;
+      }
+
+      // Sort by time to ensure proper order
+      validData.sort((a, b) => a.time - b.time);
+
+      // Create datetime array from timestamps
+      const dates = validData.map(d => {
+        const date = new Date(d.time * 1000);
+        console.log(`Converting timestamp ${d.time} to date:`, date.toISOString());
+        return date;
+      });
+
       const trace = {
-        x: visibleData.map(d => new Date(d.time * 1000)),
-        open: visibleData.map(d => d.open),
-        high: visibleData.map(d => d.high),
-        low: visibleData.map(d => d.low),
-        close: visibleData.map(d => d.close),
+        x: dates,
+        open: validData.map(d => d.open),
+        high: validData.map(d => d.high),
+        low: validData.map(d => d.low),
+        close: validData.map(d => d.close),
         
-        increasing: { line: { color: '#0ECB81', width: 1 }, fillcolor: '#0ECB81' }, 
-        decreasing: { line: { color: '#F6465D', width: 1 }, fillcolor: '#F6465D' },
+        increasing: { 
+          line: { color: '#0ECB81', width: 1 }, 
+          fillcolor: '#0ECB81' 
+        }, 
+        decreasing: { 
+          line: { color: '#F6465D', width: 1 }, 
+          fillcolor: '#F6465D' 
+        },
         line: { width: 1 },
         
         type: 'candlestick',
         xaxis: 'x',
         yaxis: 'y',
-        name: 'Candles'
+        name: 'XAUUSD',
+        hovertemplate: 
+          'Data: %{x}<br>' +
+          'Abertura: $%{open:.2f}<br>' +
+          'Máxima: $%{high:.2f}<br>' +
+          'Mínima: $%{low:.2f}<br>' +
+          'Fechamento: $%{close:.2f}<br>' +
+          '<extra></extra>'
       };
 
       setPlotlyData([trace]);
+
+      // Calculate price range for better Y-axis scaling
+      const allPrices = validData.flatMap(d => [d.open, d.high, d.low, d.close]);
+      const minPrice = Math.min(...allPrices);
+      const maxPrice = Math.max(...allPrices);
+      const priceRange = maxPrice - minPrice;
+      const padding = priceRange * 0.05; // 5% padding
 
       const layout: Partial<Plotly.Layout> = {
         dragmode: 'pan',
         margin: { l: 40, r: 60, t: 10, b: 40 },
         showlegend: false,
         xaxis: {
-          autorange: true,
           type: 'date',
           gridcolor: '#374151',
           linecolor: '#374151',
           tickfont: { color: '#9CA3AF', size: 10 },
           fixedrange: false,
           rangeslider: { visible: false },
-          tickformat: '%H:%M',
-          nticks: 6,
+          tickformat: '%H:%M<br>%d/%m',
+          nticks: Math.min(10, Math.floor(validData.length / 10) + 1),
         },
         yaxis: {
-          autorange: true,
           type: 'linear',
           gridcolor: '#374151',
           linecolor: '#374151',
@@ -77,12 +162,24 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
           side: 'right',
           fixedrange: false,
           tickprefix: '$',
+          range: [minPrice - padding, maxPrice + padding],
+          tickformat: '.2f'
         },
         plot_bgcolor: '#111827',
         paper_bgcolor: '#1F2937',
         font: { color: '#9CA3AF' },
       };
+      
       setPlotlyLayout(layout);
+
+      console.log('Chart updated with data:', {
+        dataPoints: validData.length,
+        dateRange: {
+          start: dates[0]?.toISOString(),
+          end: dates[dates.length - 1]?.toISOString()
+        },
+        priceRange: { min: minPrice, max: maxPrice }
+      });
 
     } else {
       setPlotlyData([]);
@@ -109,10 +206,10 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white">
-              BTCUSDT
+              XAUUSD
             </h3>
             <p className="text-xs text-gray-400">
-              Simulação de Mercado
+              Ouro / Dólar Americano
             </p>
           </div>
         </div>
@@ -178,6 +275,9 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
               </p>
             </div>
           </div>
+          <div className="mt-2 text-xs text-center text-gray-400">
+            {currentCandle.time ? new Date(currentCandle.time * 1000).toLocaleString('pt-BR') : 'N/A'}
+          </div>
         </div>
       )}
 
@@ -190,8 +290,10 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
             useResizeHandler={true}
             config={{
               displaylogo: false,
-              displayModeBar: false,
-              scrollZoom: true
+              displayModeBar: true,
+              modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+              scrollZoom: true,
+              doubleClick: 'reset+autosize'
             }}
           />
         ) : (
@@ -199,10 +301,10 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
             <div className="text-center">
               <Activity className="w-12 h-12 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-400 text-sm">
-                Aguardando simulação...
+                Aguardando dados...
               </p>
               <p className="text-xs text-gray-600 mt-1">
-                Configure as datas e inicie
+                Carregue dados ou inicie replay
               </p>
             </div>
           </div>

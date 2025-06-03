@@ -40,22 +40,52 @@ export const useHistoryData = () => {
         timeframe,
         startDate,
         endDate,
-        limit: 10000 // Higher limit for historical view
+        limit: 10000
       });
 
       console.log(`Received ${data.length} records for history view`);
 
       if (data && data.length > 0) {
-        const convertedData: CandleData[] = data.map(item => ({
-          time: item.time || (new Date(item.timestamp).getTime() / 1000),
-          open: parseFloat(item.open.toString()),
-          high: parseFloat(item.high.toString()),
-          low: parseFloat(item.low.toString()),
-          close: parseFloat(item.close.toString()),
-          volume: item.volume || 0
-        }));
+        // Validate and convert data
+        const convertedData: CandleData[] = data
+          .filter(item => {
+            // Validate required fields
+            const hasRequiredFields = item.time && item.open && item.high && item.low && item.close;
+            const hasValidNumbers = 
+              !isNaN(parseFloat(item.open.toString())) &&
+              !isNaN(parseFloat(item.high.toString())) &&
+              !isNaN(parseFloat(item.low.toString())) &&
+              !isNaN(parseFloat(item.close.toString()));
+            
+            if (!hasRequiredFields || !hasValidNumbers) {
+              console.warn('Invalid data item in history:', item);
+              return false;
+            }
+            return true;
+          })
+          .map(item => {
+            const timestamp = item.time || (new Date(item.timestamp).getTime() / 1000);
+            
+            return {
+              time: timestamp,
+              open: parseFloat(item.open.toString()),
+              high: parseFloat(item.high.toString()),
+              low: parseFloat(item.low.toString()),
+              close: parseFloat(item.close.toString()),
+              volume: item.volume || 0
+            };
+          })
+          .sort((a, b) => a.time - b.time); // Ensure chronological order
 
-        console.log(`Converted ${convertedData.length} candles for history view`);
+        console.log(`Converted and validated ${convertedData.length} candles for history view`);
+        console.log('Date range:', {
+          start: new Date(convertedData[0]?.time * 1000).toISOString(),
+          end: new Date(convertedData[convertedData.length - 1]?.time * 1000).toISOString()
+        });
+
+        if (convertedData.length === 0) {
+          throw new Error(`Nenhum dado válido encontrado para o período ${startDate} a ${endDate}.`);
+        }
 
         setState({
           data: convertedData,

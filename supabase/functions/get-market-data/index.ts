@@ -34,9 +34,9 @@ serve(async (req) => {
       .eq('symbol', symbol)
       .order('timestamp', { ascending: true })
 
-    // Apply date filters
+    // Apply date filters with proper timezone handling
     if (startDate) {
-      const startDateTime = new Date(startDate).toISOString()
+      const startDateTime = new Date(startDate + 'T00:00:00.000Z').toISOString()
       query = query.gte('timestamp', startDateTime)
       console.log(`Applied start date filter: ${startDateTime}`)
     }
@@ -47,7 +47,7 @@ serve(async (req) => {
       console.log(`Applied end date filter: ${endDateTime}`)
     }
 
-    // Apply limit last to ensure we get the right amount of data
+    // Apply limit
     query = query.limit(limit)
 
     const { data, error } = await query
@@ -78,20 +78,28 @@ serve(async (req) => {
       )
     }
 
-    // Process data according to timeframe
+    // Process data according to timeframe with improved aggregation
     const processedData = processDataByTimeframe(data, timeframe)
     console.log(`Processed to ${processedData.length} records for timeframe ${timeframe}`)
 
-    // Convert to chart format
-    const formattedData = processedData.map((tick: any) => ({
-      timestamp: tick.timestamp, // Keep original timestamp for compatibility
-      time: Math.floor(new Date(tick.timestamp).getTime() / 1000), // Unix timestamp for chart
-      open: parseFloat(tick.open),
-      high: parseFloat(tick.high),
-      low: parseFloat(tick.low),
-      close: parseFloat(tick.close),
-      volume: tick.volume || 0
-    }))
+    // Convert to chart format with proper timestamp handling
+    const formattedData = processedData.map((tick: any) => {
+      const timestamp = new Date(tick.timestamp)
+      const unixTime = Math.floor(timestamp.getTime() / 1000)
+      
+      return {
+        timestamp: tick.timestamp,
+        time: unixTime,
+        open: parseFloat(tick.open.toString()),
+        high: parseFloat(tick.high.toString()),
+        low: parseFloat(tick.low.toString()),
+        close: parseFloat(tick.close.toString()),
+        volume: tick.volume || 0
+      }
+    })
+
+    console.log(`Final formatted data: ${formattedData.length} records`)
+    console.log(`Sample data point:`, formattedData[0])
 
     return new Response(
       JSON.stringify({
@@ -125,22 +133,27 @@ serve(async (req) => {
 })
 
 function processDataByTimeframe(data: any[], timeframe: string) {
+  console.log(`Processing ${data.length} records for timeframe ${timeframe}`)
+  
   // For 5min timeframe, return data as is since we generate 5-minute intervals
   if (timeframe === '5min') {
     return data
   }
 
-  // For other timeframes, we need to aggregate the data
   const intervalMinutes = getIntervalMinutes(timeframe)
+  
+  // For timeframes smaller than our base interval, return raw data
   if (intervalMinutes <= 5) {
-    return data // Return raw data for timeframes <= 5min
+    return data
   }
 
-  // Group data by time intervals
+  // Group data by time intervals for aggregation
   const grouped: { [key: string]: any[] } = {}
   
   data.forEach(tick => {
     const tickTime = new Date(tick.timestamp)
+    
+    // Calculate the interval start time
     const intervalStart = new Date(tickTime)
     intervalStart.setMinutes(Math.floor(intervalStart.getMinutes() / intervalMinutes) * intervalMinutes, 0, 0)
     
@@ -151,28 +164,37 @@ function processDataByTimeframe(data: any[], timeframe: string) {
     grouped[key].push(tick)
   })
 
+  console.log(`Grouped into ${Object.keys(grouped).length} intervals`)
+
   // Aggregate grouped data
-  const aggregated = Object.keys(grouped).map(key => {
-    const group = grouped[key]
-    if (group.length === 0) return null
+  const aggregated = Object.keys(grouped)
+    .sort()
+    .map(key => {
+      const group = grouped[key]
+      if (group.length === 0) return null
 
-    const open = group[0].open
-    const close = group[group.length - 1].close
-    const high = Math.max(...group.map(t => t.high))
-    const low = Math.min(...group.map(t => t.low))
-    const volume = group.reduce((sum, t) => sum + (t.volume || 0), 0)
+      // Sort group by timestamp to ensure proper OHLC calculation
+      group.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-    return {
-      symbol: group[0].symbol,
-      timestamp: key,
-      open,
-      high,
-      low,
-      close,
-      volume
-    }
-  }).filter(Boolean)
+      const open = parseFloat(group[0].open.toString())
+      const close = parseFloat(group[group.length - 1].close.toString())
+      const high = Math.max(...group.map(t => parseFloat(t.high.toString())))
+      const low = Math.min(...group.map(t => parseFloat(t.low.toString())))
+      const volume = group.reduce((sum, t) => sum + (parseInt(t.volume) || 0), 0)
 
+      return {
+        symbol: group[0].symbol,
+        timestamp: key,
+        open: open,
+        high: high,
+        low: low,
+        close: close,
+        volume: volume
+      }
+    })
+    .filter(Boolean)
+
+  console.log(`Aggregated to ${aggregated.length} records`)
   return aggregated
 }
 
