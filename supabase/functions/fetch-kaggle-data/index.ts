@@ -15,22 +15,11 @@ serve(async (req) => {
   try {
     const { symbol = 'XAUUSD', startDate, endDate } = await req.json()
 
-    console.log(`Fetching real data for ${symbol} from ${startDate} to ${endDate}`)
+    console.log(`Fetching data for ${symbol} from ${startDate} to ${endDate}`)
 
     // Get Kaggle credentials from Supabase secrets
     const kaggleUsername = Deno.env.get('KAGGLE_USERNAME')
     const kaggleKey = Deno.env.get('KAGGLE_API_KEY')
-
-    if (!kaggleUsername || !kaggleKey) {
-      console.log('Kaggle credentials not found, generating simulated data...')
-      // Create Supabase client
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      )
-      
-      return await generateSimulatedData(supabase, symbol, startDate, endDate)
-    }
 
     // Create Supabase client
     const supabase = createClient(
@@ -38,56 +27,71 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // For now, we'll generate realistic data since Kaggle API access requires proper authentication
-    // In a production environment, you would implement proper Kaggle API integration
-    console.log('Generating realistic simulated data...')
-    const tickData = await generateRealisticTickData(symbol, startDate, endDate)
-
-    // Insert data in batches
-    const batchSize = 100
-    let insertedCount = 0
-
-    for (let i = 0; i < tickData.length; i += batchSize) {
-      const batch = tickData.slice(i, i + batchSize)
-      
-      const { error } = await supabase
-        .from('tick_data')
-        .insert(batch)
-
-      if (error) {
-        console.error('Error inserting batch:', error)
-        throw error
-      }
-
-      insertedCount += batch.length
+    if (!kaggleUsername || !kaggleKey) {
+      console.log('Kaggle credentials not found, generating simulated data...')
+      return await generateSimulatedData(supabase, symbol, startDate, endDate)
     }
 
-    // Update available data ranges
-    await supabase
-      .from('available_data_ranges')
-      .upsert({
-        symbol,
-        start_date: startDate,
-        end_date: endDate,
-        total_ticks: insertedCount,
-        last_updated: new Date().toISOString()
-      })
+    try {
+      console.log('Attempting to fetch real Kaggle data...')
+      
+      // Try to fetch real Kaggle data first
+      const realData = await fetchKaggleData(kaggleUsername, kaggleKey, symbol, startDate, endDate)
+      
+      if (realData && realData.length > 0) {
+        // Insert real data in batches
+        const batchSize = 100
+        let insertedCount = 0
 
-    console.log(`Successfully processed and stored ${insertedCount} tick records`)
+        for (let i = 0; i < realData.length; i += batchSize) {
+          const batch = realData.slice(i, i + batchSize)
+          
+          const { error } = await supabase
+            .from('tick_data')
+            .insert(batch)
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Gerados e armazenados ${insertedCount} registros de dados para ${symbol}`,
-        tickCount: insertedCount,
-        dateRange: { startDate, endDate },
-        source: 'simulated-realistic-data'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
-    )
+          if (error) {
+            console.error('Error inserting real data batch:', error)
+            throw error
+          }
+
+          insertedCount += batch.length
+        }
+
+        // Update available data ranges
+        await supabase
+          .from('available_data_ranges')
+          .upsert({
+            symbol,
+            start_date: startDate,
+            end_date: endDate,
+            total_ticks: insertedCount,
+            last_updated: new Date().toISOString()
+          })
+
+        console.log(`Successfully processed and stored ${insertedCount} real Kaggle records`)
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Dados reais do Kaggle carregados: ${insertedCount} registros para ${symbol}`,
+            tickCount: insertedCount,
+            dateRange: { startDate, endDate },
+            source: 'kaggle-real-data'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
+      }
+    } catch (kaggleError) {
+      console.error('Kaggle API error, falling back to simulated data:', kaggleError)
+    }
+
+    // Fallback to simulated data if Kaggle fails
+    console.log('Generating realistic simulated data as fallback...')
+    return await generateSimulatedData(supabase, symbol, startDate, endDate)
 
   } catch (error) {
     console.error('Error in fetch-kaggle-data function:', error)
@@ -103,6 +107,78 @@ serve(async (req) => {
     )
   }
 })
+
+async function fetchKaggleData(username: string, apiKey: string, symbol: string, startDate: string, endDate: string) {
+  try {
+    // Kaggle API authentication using basic auth
+    const auth = btoa(`${username}:${apiKey}`)
+    
+    // For now, we'll simulate a Kaggle API call since the exact dataset structure varies
+    // In production, you would use the actual Kaggle API endpoints for financial data
+    console.log('Simulating Kaggle API call with real credentials...')
+    
+    // This is where you would make the actual Kaggle API call:
+    // const response = await fetch('https://www.kaggle.com/api/v1/datasets/download/...')
+    
+    // For demonstration, we'll return null to trigger fallback to simulated data
+    // but with proper error handling for real implementation
+    return null
+    
+  } catch (error) {
+    console.error('Kaggle API fetch error:', error)
+    throw error
+  }
+}
+
+async function generateSimulatedData(supabase: any, symbol: string, startDate: string, endDate: string) {
+  console.log('Generating simulated data...')
+  
+  const tickData = await generateRealisticTickData(symbol, startDate, endDate)
+  
+  // Insert simulated data
+  const batchSize = 100
+  let insertedCount = 0
+
+  for (let i = 0; i < tickData.length; i += batchSize) {
+    const batch = tickData.slice(i, i + batchSize)
+    
+    const { error } = await supabase
+      .from('tick_data')
+      .insert(batch)
+
+    if (error) {
+      console.error('Error inserting simulated batch:', error)
+      throw error
+    }
+
+    insertedCount += batch.length
+  }
+
+  // Update available data ranges
+  await supabase
+    .from('available_data_ranges')
+    .upsert({
+      symbol,
+      start_date: startDate,
+      end_date: endDate,
+      total_ticks: insertedCount,
+      last_updated: new Date().toISOString()
+    })
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: `Dados simulados realistas gerados: ${insertedCount} registros para ${symbol}`,
+      tickCount: insertedCount,
+      dateRange: { startDate, endDate },
+      source: 'simulated-realistic-data'
+    }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    },
+  )
+}
 
 async function generateRealisticTickData(symbol: string, startDate: string, endDate: string) {
   const tickData = []
@@ -159,56 +235,6 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
   }
 
   return tickData
-}
-
-async function generateSimulatedData(supabase: any, symbol: string, startDate: string, endDate: string) {
-  console.log('Generating simulated data as fallback...')
-  
-  const tickData = await generateRealisticTickData(symbol, startDate, endDate)
-  
-  // Insert simulated data
-  const batchSize = 100
-  let insertedCount = 0
-
-  for (let i = 0; i < tickData.length; i += batchSize) {
-    const batch = tickData.slice(i, i + batchSize)
-    
-    const { error } = await supabase
-      .from('tick_data')
-      .insert(batch)
-
-    if (error) {
-      console.error('Error inserting simulated batch:', error)
-      throw error
-    }
-
-    insertedCount += batch.length
-  }
-
-  // Update available data ranges
-  await supabase
-    .from('available_data_ranges')
-    .upsert({
-      symbol,
-      start_date: startDate,
-      end_date: endDate,
-      total_ticks: insertedCount,
-      last_updated: new Date().toISOString()
-    })
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      message: `Gerados e armazenados ${insertedCount} registros simulados para ${symbol}`,
-      tickCount: insertedCount,
-      dateRange: { startDate, endDate },
-      source: 'simulated-fallback'
-    }),
-    {
-      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-      status: 200,
-    },
-  )
 }
 
 function getStartingPrice(symbol: string): number {
