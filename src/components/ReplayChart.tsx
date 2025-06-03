@@ -1,11 +1,10 @@
 
-import React, { useEffect, useRef, useState } from 'react';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { CandleData } from '../hooks/useReplayMode';
-import { ComposedChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Bar } from 'recharts';
+import EChartsCandle from './EChartsCandle';
 
 interface ReplayChartProps {
   data: CandleData[];
@@ -13,76 +12,6 @@ interface ReplayChartProps {
   onJumpToPosition: (position: number) => void;
   speed: number;
 }
-
-interface CandleBarProps {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  payload?: any;
-}
-
-const CandleBar: React.FC<CandleBarProps> = ({ x = 0, y = 0, width = 0, height = 0, payload }) => {
-  if (!payload || !payload.open || !payload.close || !payload.high || !payload.low) {
-    return null;
-  }
-
-  const { open, close, high, low } = payload;
-  const isGreen = close > open;
-  const color = isGreen ? '#22c55e' : '#ef4444';
-  
-  // Calcular posições dos preços
-  const maxPrice = Math.max(high, low, open, close);
-  const minPrice = Math.min(high, low, open, close);
-  const priceRange = maxPrice - minPrice || 1;
-  
-  // Altura da vela (corpo)
-  const bodyHeight = Math.abs(close - open) / priceRange * height;
-  const bodyTop = y + ((maxPrice - Math.max(open, close)) / priceRange * height);
-  
-  // Posições das mechas
-  const wickTop = y + ((maxPrice - high) / priceRange * height);
-  const wickBottom = y + ((maxPrice - low) / priceRange * height);
-  
-  const wickX = x + width / 2;
-  const bodyWidth = Math.max(width * 0.6, 2);
-  const bodyX = x + (width - bodyWidth) / 2;
-
-  return (
-    <g>
-      {/* Mecha superior */}
-      <line
-        x1={wickX}
-        y1={wickTop}
-        x2={wickX}
-        y2={bodyTop}
-        stroke={color}
-        strokeWidth={1}
-      />
-      
-      {/* Corpo da vela */}
-      <rect
-        x={bodyX}
-        y={bodyTop}
-        width={bodyWidth}
-        height={bodyHeight || 1}
-        fill={isGreen ? color : 'transparent'}
-        stroke={color}
-        strokeWidth={1}
-      />
-      
-      {/* Mecha inferior */}
-      <line
-        x1={wickX}
-        y1={bodyTop + bodyHeight}
-        x2={wickX}
-        y2={wickBottom}
-        stroke={color}
-        strokeWidth={1}
-      />
-    </g>
-  );
-};
 
 const ReplayChart: React.FC<ReplayChartProps> = ({ 
   data, 
@@ -92,86 +21,21 @@ const ReplayChart: React.FC<ReplayChartProps> = ({
 }) => {
   const [previewTime, setPreviewTime] = useState<string>('');
   
-  // Dados visíveis até o currentIndex
-  const visibleData = data.slice(0, currentIndex).map((candle, index) => ({
-    ...candle,
-    index,
-    dateTime: new Date(candle.time * 1000).toLocaleString()
-  }));
-
   const currentCandle = currentIndex > 0 ? data[currentIndex - 1] : null;
   const progress = data.length > 0 ? (currentIndex / data.length) * 100 : 0;
-
-  const chartConfig = {
-    open: {
-      label: "Abertura",
-      color: "#8884d8",
-    },
-    close: {
-      label: "Fechamento", 
-      color: "#82ca9d",
-    },
-    high: {
-      label: "Máxima",
-      color: "#ffc658",
-    },
-    low: {
-      label: "Mínima",
-      color: "#ff7300",
-    },
-  };
 
   return (
     <div className="space-y-4">
       {/* Gráfico de Candles */}
-      <Card className="p-4">
+      <Card className="p-4 relative">
         <div className="h-[400px] w-full">
-          <ChartContainer config={chartConfig}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={visibleData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  dataKey="index"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: '#9ca3af' }}
-                  tickFormatter={(value) => {
-                    const item = visibleData[value];
-                    return item ? new Date(item.time * 1000).toLocaleDateString() : '';
-                  }}
-                />
-                <YAxis 
-                  domain={['dataMin - 100', 'dataMax + 100']}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: '#9ca3af' }}
-                  tickFormatter={(value) => `$${value.toFixed(0)}`}
-                />
-                <ChartTooltip 
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload || !payload.length) return null;
-                    const data = payload[0].payload;
-                    return (
-                      <ChartTooltipContent>
-                        <div className="space-y-1">
-                          <p className="font-medium">{data.dateTime}</p>
-                          <p>Abertura: <span className="font-mono">${data.open.toFixed(2)}</span></p>
-                          <p>Máxima: <span className="font-mono">${data.high.toFixed(2)}</span></p>
-                          <p>Mínima: <span className="font-mono">${data.low.toFixed(2)}</span></p>
-                          <p>Fechamento: <span className="font-mono">${data.close.toFixed(2)}</span></p>
-                        </div>
-                      </ChartTooltipContent>
-                    );
-                  }}
-                />
-                <Bar 
-                  dataKey="open" 
-                  shape={<CandleBar />}
-                  fillOpacity={0}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+          <EChartsCandle 
+            data={data}
+            currentIndex={currentIndex}
+            currentCandle={currentCandle}
+            isActive={true}
+            height="400px"
+          />
         </div>
         
         {/* Overlay com informações do candle atual */}

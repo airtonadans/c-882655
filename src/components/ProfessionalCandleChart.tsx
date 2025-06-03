@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import Plot from 'react-plotly.js';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Activity, Minus } from 'lucide-react';
 import { CandleData } from '../utils/advancedMarketGenerator';
+import EChartsCandle from './EChartsCandle';
 
 interface ProfessionalCandleChartProps {
   data: CandleData[];
@@ -19,173 +19,16 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
   currentCandle,
   isActive 
 }) => {
-  const [visibleData, setVisibleData] = useState<CandleData[]>([]);
-  const [plotlyData, setPlotlyData] = useState<any[]>([]);
-  const [plotlyLayout, setPlotlyLayout] = useState<Partial<Plotly.Layout>>({});
-
   // Debug logs
   useEffect(() => {
     console.log('ProfessionalCandleChart - Data received:', {
       dataLength: data.length,
       currentIndex,
       firstItem: data[0],
-      lastItem: data[data.length - 1]
+      lastItem: data[data.length - 1],
+      currentCandle
     });
-  }, [data, currentIndex]);
-
-  useEffect(() => {
-    if (data.length > 0) {
-      let dataToShow: CandleData[];
-      
-      if (currentIndex >= 0) {
-        // Replay mode - show data up to current index
-        dataToShow = data.slice(0, currentIndex + 1);
-      } else {
-        // History mode - show all data
-        dataToShow = data;
-      }
-      
-      console.log('Setting visible data:', {
-        totalData: data.length,
-        currentIndex,
-        visibleLength: dataToShow.length
-      });
-      
-      setVisibleData(dataToShow);
-    } else {
-      setVisibleData([]);
-    }
-  }, [data, currentIndex]);
-
-  useEffect(() => {
-    if (visibleData.length > 0) {
-      console.log('Processing visible data for chart:', {
-        length: visibleData.length,
-        sample: visibleData.slice(0, 3).map(d => ({
-          time: d.time,
-          timestamp: new Date(d.time * 1000).toISOString(),
-          ohlc: [d.open, d.high, d.low, d.close]
-        }))
-      });
-
-      // Validate and clean data
-      const validData = visibleData.filter(d => 
-        d && 
-        typeof d.time === 'number' && 
-        typeof d.open === 'number' && 
-        typeof d.high === 'number' && 
-        typeof d.low === 'number' && 
-        typeof d.close === 'number' &&
-        !isNaN(d.time) &&
-        !isNaN(d.open) &&
-        !isNaN(d.high) &&
-        !isNaN(d.low) &&
-        !isNaN(d.close)
-      );
-
-      console.log(`Filtered ${validData.length} valid data points from ${visibleData.length}`);
-
-      if (validData.length === 0) {
-        console.warn('No valid data points found');
-        setPlotlyData([]);
-        return;
-      }
-
-      // Sort by time to ensure proper order
-      validData.sort((a, b) => a.time - b.time);
-
-      // Create datetime array from timestamps
-      const dates = validData.map(d => {
-        const date = new Date(d.time * 1000);
-        console.log(`Converting timestamp ${d.time} to date:`, date.toISOString());
-        return date;
-      });
-
-      const trace = {
-        x: dates,
-        open: validData.map(d => d.open),
-        high: validData.map(d => d.high),
-        low: validData.map(d => d.low),
-        close: validData.map(d => d.close),
-        
-        increasing: { 
-          line: { color: '#0ECB81', width: 1 }, 
-          fillcolor: '#0ECB81' 
-        }, 
-        decreasing: { 
-          line: { color: '#F6465D', width: 1 }, 
-          fillcolor: '#F6465D' 
-        },
-        line: { width: 1 },
-        
-        type: 'candlestick',
-        xaxis: 'x',
-        yaxis: 'y',
-        name: 'XAUUSD',
-        hovertemplate: 
-          'Data: %{x}<br>' +
-          'Abertura: $%{open:.2f}<br>' +
-          'Máxima: $%{high:.2f}<br>' +
-          'Mínima: $%{low:.2f}<br>' +
-          'Fechamento: $%{close:.2f}<br>' +
-          '<extra></extra>'
-      };
-
-      setPlotlyData([trace]);
-
-      // Calculate price range for better Y-axis scaling
-      const allPrices = validData.flatMap(d => [d.open, d.high, d.low, d.close]);
-      const minPrice = Math.min(...allPrices);
-      const maxPrice = Math.max(...allPrices);
-      const priceRange = maxPrice - minPrice;
-      const padding = priceRange * 0.05; // 5% padding
-
-      const layout: Partial<Plotly.Layout> = {
-        dragmode: 'pan',
-        margin: { l: 40, r: 60, t: 10, b: 40 },
-        showlegend: false,
-        xaxis: {
-          type: 'date',
-          gridcolor: '#374151',
-          linecolor: '#374151',
-          tickfont: { color: '#9CA3AF', size: 10 },
-          fixedrange: false,
-          rangeslider: { visible: false },
-          tickformat: '%H:%M<br>%d/%m',
-          nticks: Math.min(10, Math.floor(validData.length / 10) + 1),
-        },
-        yaxis: {
-          type: 'linear',
-          gridcolor: '#374151',
-          linecolor: '#374151',
-          tickfont: { color: '#9CA3AF', size: 10 },
-          side: 'right',
-          fixedrange: false,
-          tickprefix: '$',
-          range: [minPrice - padding, maxPrice + padding],
-          tickformat: '.2f'
-        },
-        plot_bgcolor: '#111827',
-        paper_bgcolor: '#1F2937',
-        font: { color: '#9CA3AF' },
-      };
-      
-      setPlotlyLayout(layout);
-
-      console.log('Chart updated with data:', {
-        dataPoints: validData.length,
-        dateRange: {
-          start: dates[0]?.toISOString(),
-          end: dates[dates.length - 1]?.toISOString()
-        },
-        priceRange: { min: minPrice, max: maxPrice }
-      });
-
-    } else {
-      setPlotlyData([]);
-      setPlotlyLayout({});
-    }
-  }, [visibleData]);
+  }, [data, currentIndex, currentCandle]);
 
   const getCurrentTrend = () => {
     if (!currentCandle) return null;
@@ -282,19 +125,13 @@ const ProfessionalCandleChart: React.FC<ProfessionalCandleChartProps> = ({
       )}
 
       <div className="h-[400px] w-full">
-        {visibleData.length > 0 ? (
-          <Plot
-            data={plotlyData}
-            layout={plotlyLayout}
-            style={{ width: '100%', height: '100%' }}
-            useResizeHandler={true}
-            config={{
-              displaylogo: false,
-              displayModeBar: true,
-              modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-              scrollZoom: true,
-              doubleClick: 'reset+autosize'
-            }}
+        {data.length > 0 ? (
+          <EChartsCandle 
+            data={data}
+            currentIndex={currentIndex}
+            currentCandle={currentCandle}
+            isActive={isActive}
+            height="400px"
           />
         ) : (
           <div className="h-full flex items-center justify-center bg-gray-800 rounded-lg">
