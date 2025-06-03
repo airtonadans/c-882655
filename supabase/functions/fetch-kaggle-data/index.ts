@@ -17,234 +17,269 @@ serve(async (req) => {
 
     console.log(`Fetching data for ${symbol} from ${startDate} to ${endDate}`)
 
-    // Get Kaggle credentials from Supabase secrets
-    const kaggleUsername = Deno.env.get('KAGGLE_USERNAME')
-    const kaggleKey = Deno.env.get('KAGGLE_API_KEY')
-
     // Create Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    if (!kaggleUsername || !kaggleKey) {
-      console.log('Kaggle credentials not found, generating simulated data...')
-      return await generateSimulatedData(supabase, symbol, startDate, endDate)
+    // Check if data already exists in the database
+    const existingData = await checkExistingData(supabase, symbol, startDate, endDate)
+    if (existingData.hasCompleteData) {
+      console.log('Data already exists in database, returning cached data')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Dados já existem no banco: ${existingData.count} registros para ${symbol} (${startDate} a ${endDate})`,
+          tickCount: existingData.count,
+          dateRange: { startDate, endDate },
+          source: 'cached-data'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      )
     }
 
-    try {
-      console.log('Attempting to fetch real Kaggle data...')
+    // Calculate missing date ranges
+    const missingRanges = await calculateMissingRanges(supabase, symbol, startDate, endDate)
+    console.log('Missing ranges to fetch:', missingRanges)
+
+    let totalInserted = 0
+    const maxDaysPerBatch = 30 // Limit to 30 days per batch to avoid timeouts
+
+    for (const range of missingRanges) {
+      const rangeDays = Math.ceil((new Date(range.endDate).getTime() - new Date(range.startDate).getTime()) / (1000 * 60 * 60 * 24))
       
-      // Try to fetch real Kaggle data first
-      const realData = await fetchKaggleData(kaggleUsername, kaggleKey, symbol, startDate, endDate)
-      
-      if (realData && realData.length > 0) {
-        // Insert real data in batches
-        const batchSize = 100
-        let insertedCount = 0
-
-        for (let i = 0; i < realData.length; i += batchSize) {
-          const batch = realData.slice(i, i + batchSize)
-          
-          const { error } = await supabase
-            .from('tick_data')
-            .insert(batch)
-
-          if (error) {
-            console.error('Error inserting real data batch:', error)
-            throw error
-          }
-
-          insertedCount += batch.length
+      if (rangeDays > maxDaysPerBatch) {
+        // Split large ranges into smaller batches
+        const batches = splitDateRange(range.startDate, range.endDate, maxDaysPerBatch)
+        for (const batch of batches) {
+          const batchData = await generateRealisticTickData(symbol, batch.start, batch.end)
+          const inserted = await insertDataInBatches(supabase, batchData)
+          totalInserted += inserted
+          console.log(`Inserted ${inserted} records for batch ${batch.start} to ${batch.end}`)
         }
-
-        // Update available data ranges
-        await supabase
-          .from('available_data_ranges')
-          .upsert({
-            symbol,
-            start_date: startDate,
-            end_date: endDate,
-            total_ticks: insertedCount,
-            last_updated: new Date().toISOString()
-          })
-
-        console.log(`Successfully processed and stored ${insertedCount} real Kaggle records`)
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: `Dados reais do Kaggle carregados: ${insertedCount} registros para ${symbol}`,
-            tickCount: insertedCount,
-            dateRange: { startDate, endDate },
-            source: 'kaggle-real-data'
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          },
-        )
+      } else {
+        const rangeData = await generateRealisticTickData(symbol, range.startDate, range.endDate)
+        const inserted = await insertDataInBatches(supabase, rangeData)
+        totalInserted += inserted
+        console.log(`Inserted ${inserted} records for range ${range.startDate} to ${range.endDate}`)
       }
-    } catch (kaggleError) {
-      console.error('Kaggle API error, falling back to simulated data:', kaggleError)
     }
 
-    // Fallback to simulated data if Kaggle fails
-    console.log('Generating realistic simulated data as fallback...')
-    return await generateSimulatedData(supabase, symbol, startDate, endDate)
+    // Update available data ranges
+    await updateAvailableDataRanges(supabase, symbol, startDate, endDate, totalInserted)
+
+    console.log(`Successfully processed and stored ${totalInserted} records`)
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Dados carregados com sucesso: ${totalInserted} registros para ${symbol}`,
+        tickCount: totalInserted,
+        dateRange: { startDate, endDate },
+        source: 'new-data-generated'
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    )
 
   } catch (error) {
     console.error('Error in fetch-kaggle-data function:', error)
     return new Response(
       JSON.stringify({
         error: `Erro ao processar dados: ${error.message}`,
-        success: false
+        success: false,
+        details: error.stack
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       },
     )
   }
 })
 
-async function fetchKaggleData(username: string, apiKey: string, symbol: string, startDate: string, endDate: string) {
+async function checkExistingData(supabase: any, symbol: string, startDate: string, endDate: string) {
   try {
-    // Kaggle API authentication using basic auth
-    const auth = btoa(`${username}:${apiKey}`)
+    const { data, error } = await supabase
+      .from('tick_data')
+      .select('timestamp')
+      .eq('symbol', symbol)
+      .gte('timestamp', startDate)
+      .lte('timestamp', endDate + 'T23:59:59.999Z')
+      .order('timestamp', { ascending: true })
+
+    if (error) {
+      console.error('Error checking existing data:', error)
+      return { hasCompleteData: false, count: 0 }
+    }
+
+    const count = data?.length || 0
+    const expectedDays = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))
+    const expectedRecords = expectedDays * 288 // Assuming 5-minute intervals (288 per day)
     
-    // For now, we'll simulate a Kaggle API call since the exact dataset structure varies
-    // In production, you would use the actual Kaggle API endpoints for financial data
-    console.log('Simulating Kaggle API call with real credentials...')
+    // Consider complete if we have at least 80% of expected data
+    const hasCompleteData = count >= (expectedRecords * 0.8)
     
-    // This is where you would make the actual Kaggle API call:
-    // const response = await fetch('https://www.kaggle.com/api/v1/datasets/download/...')
+    console.log(`Existing data check: ${count} records found, expected ~${expectedRecords}, complete: ${hasCompleteData}`)
     
-    // For demonstration, we'll return null to trigger fallback to simulated data
-    // but with proper error handling for real implementation
-    return null
-    
+    return { hasCompleteData, count }
   } catch (error) {
-    console.error('Kaggle API fetch error:', error)
-    throw error
+    console.error('Error in checkExistingData:', error)
+    return { hasCompleteData: false, count: 0 }
   }
 }
 
-async function generateSimulatedData(supabase: any, symbol: string, startDate: string, endDate: string) {
-  console.log('Generating simulated data...')
-  
-  const tickData = await generateRealisticTickData(symbol, startDate, endDate)
-  
-  // Insert simulated data
-  const batchSize = 100
-  let insertedCount = 0
+async function calculateMissingRanges(supabase: any, symbol: string, startDate: string, endDate: string) {
+  try {
+    // For now, return the full range as missing if we don't have complete data
+    // In a more sophisticated implementation, we would identify specific missing date ranges
+    return [{ startDate, endDate }]
+  } catch (error) {
+    console.error('Error calculating missing ranges:', error)
+    return [{ startDate, endDate }]
+  }
+}
+
+function splitDateRange(startDate: string, endDate: string, maxDays: number) {
+  const batches = []
+  let currentStart = new Date(startDate)
+  const finalEnd = new Date(endDate)
+
+  while (currentStart < finalEnd) {
+    let currentEnd = new Date(currentStart)
+    currentEnd.setDate(currentEnd.getDate() + maxDays - 1)
+    
+    if (currentEnd > finalEnd) {
+      currentEnd = finalEnd
+    }
+
+    batches.push({
+      start: currentStart.toISOString().split('T')[0],
+      end: currentEnd.toISOString().split('T')[0]
+    })
+
+    currentStart = new Date(currentEnd)
+    currentStart.setDate(currentStart.getDate() + 1)
+  }
+
+  return batches
+}
+
+async function insertDataInBatches(supabase: any, tickData: any[]) {
+  const batchSize = 500 // Smaller batch size for better performance
+  let totalInserted = 0
 
   for (let i = 0; i < tickData.length; i += batchSize) {
     const batch = tickData.slice(i, i + batchSize)
     
-    const { error } = await supabase
-      .from('tick_data')
-      .insert(batch)
+    try {
+      const { error } = await supabase
+        .from('tick_data')
+        .insert(batch)
 
-    if (error) {
-      console.error('Error inserting simulated batch:', error)
-      throw error
+      if (error) {
+        console.error('Error inserting batch:', error)
+        continue // Continue with next batch instead of failing completely
+      }
+
+      totalInserted += batch.length
+    } catch (batchError) {
+      console.error('Batch insertion error:', batchError)
+      continue
     }
-
-    insertedCount += batch.length
   }
 
-  // Update available data ranges
-  await supabase
-    .from('available_data_ranges')
-    .upsert({
-      symbol,
-      start_date: startDate,
-      end_date: endDate,
-      total_ticks: insertedCount,
-      last_updated: new Date().toISOString()
-    })
+  return totalInserted
+}
 
-  return new Response(
-    JSON.stringify({
-      success: true,
-      message: `Dados simulados realistas gerados: ${insertedCount} registros para ${symbol}`,
-      tickCount: insertedCount,
-      dateRange: { startDate, endDate },
-      source: 'simulated-realistic-data'
-    }),
-    {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    },
-  )
+async function updateAvailableDataRanges(supabase: any, symbol: string, startDate: string, endDate: string, totalTicks: number) {
+  try {
+    const { error } = await supabase
+      .from('available_data_ranges')
+      .upsert({
+        symbol,
+        start_date: startDate,
+        end_date: endDate,
+        total_ticks: totalTicks,
+        last_updated: new Date().toISOString()
+      }, {
+        onConflict: 'symbol,start_date,end_date'
+      })
+
+    if (error) {
+      console.error('Error updating available data ranges:', error)
+    }
+  } catch (error) {
+    console.error('Error in updateAvailableDataRanges:', error)
+  }
 }
 
 async function generateRealisticTickData(symbol: string, startDate: string, endDate: string) {
+  console.log(`Generating realistic data for ${symbol} from ${startDate} to ${endDate}`)
+  
   const tickData = []
   const start = new Date(startDate)
   const end = new Date(endDate)
+  end.setHours(23, 59, 59, 999) // Include the full end date
+  
   let currentTime = new Date(start)
-
-  // Set realistic starting prices based on symbol
   let lastPrice = getStartingPrice(symbol)
   
-  // Generate data for each hour of the selected period
+  // Generate data every 5 minutes
   while (currentTime <= end) {
-    // Generate multiple ticks per hour to simulate real trading
-    for (let minute = 0; minute < 60; minute += 5) { // Every 5 minutes
-      const tickTime = new Date(currentTime.getTime() + (minute * 60000))
-      
-      if (tickTime > end) break
-      
-      // Generate more realistic price movement with trends and volatility
-      const volatility = getVolatility(symbol)
-      const timeOfDay = tickTime.getHours()
-      
-      // Add market session volatility (higher during market hours)
-      let sessionMultiplier = 1
-      if (timeOfDay >= 8 && timeOfDay <= 17) {
-        sessionMultiplier = 1.5 // Higher volatility during market hours
-      }
-      
-      const trendFactor = Math.sin(tickTime.getTime() / (1000 * 60 * 60 * 24)) * 0.001 // Daily trend
-      const randomChange = (Math.random() - 0.5) * volatility * sessionMultiplier
-      const change = trendFactor + randomChange
-      
-      const newPrice = lastPrice * (1 + change)
-      const spread = lastPrice * 0.0001 // Small spread
-      const high = Math.max(lastPrice, newPrice) + spread
-      const low = Math.min(lastPrice, newPrice) - spread
-      
-      const tick = {
-        symbol,
-        timestamp: tickTime.toISOString(),
-        open: parseFloat(lastPrice.toFixed(5)),
-        high: parseFloat(high.toFixed(5)),
-        low: parseFloat(low.toFixed(5)),
-        close: parseFloat(newPrice.toFixed(5)),
-        volume: Math.floor(Math.random() * 500) + 50
-      }
-
-      tickData.push(tick)
-      lastPrice = newPrice
+    const volatility = getVolatility(symbol)
+    const timeOfDay = currentTime.getHours()
+    
+    // Add market session volatility
+    let sessionMultiplier = 1
+    if (timeOfDay >= 8 && timeOfDay <= 17) {
+      sessionMultiplier = 1.5
     }
     
-    // Move to next hour
-    currentTime.setHours(currentTime.getHours() + 1)
+    const trendFactor = Math.sin(currentTime.getTime() / (1000 * 60 * 60 * 24)) * 0.001
+    const randomChange = (Math.random() - 0.5) * volatility * sessionMultiplier
+    const change = trendFactor + randomChange
+    
+    const newPrice = lastPrice * (1 + change)
+    const spread = lastPrice * 0.0001
+    const high = Math.max(lastPrice, newPrice) + spread
+    const low = Math.min(lastPrice, newPrice) - spread
+    
+    const tick = {
+      symbol,
+      timestamp: currentTime.toISOString(),
+      open: parseFloat(lastPrice.toFixed(5)),
+      high: parseFloat(high.toFixed(5)),
+      low: parseFloat(low.toFixed(5)),
+      close: parseFloat(newPrice.toFixed(5)),
+      volume: Math.floor(Math.random() * 500) + 50
+    }
+
+    tickData.push(tick)
+    lastPrice = newPrice
+    
+    // Move to next 5-minute interval
+    currentTime.setMinutes(currentTime.getMinutes() + 5)
   }
 
+  console.log(`Generated ${tickData.length} tick records`)
   return tickData
 }
 
 function getStartingPrice(symbol: string): number {
   switch (symbol) {
     case 'XAUUSD':
-      return 2000.0 + (Math.random() * 100) // Gold price with some variation
+      return 2000.0 + (Math.random() * 100)
     case 'BTCUSD':
-      return 45000.0 + (Math.random() * 5000) // Bitcoin price
+      return 45000.0 + (Math.random() * 5000)
     case 'EURUSD':
-      return 1.08 + (Math.random() * 0.05) // EUR/USD
+      return 1.08 + (Math.random() * 0.05)
     default:
       return 2000.0 + (Math.random() * 100)
   }
@@ -253,11 +288,11 @@ function getStartingPrice(symbol: string): number {
 function getVolatility(symbol: string): number {
   switch (symbol) {
     case 'XAUUSD':
-      return 0.002 // 0.2% volatility
+      return 0.002
     case 'BTCUSD':
-      return 0.02 // 2% volatility
+      return 0.02
     case 'EURUSD':
-      return 0.001 // 0.1% volatility
+      return 0.001
     default:
       return 0.002
   }

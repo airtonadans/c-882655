@@ -22,23 +22,40 @@ export const useHistoryData = () => {
     console.log('Loading history data:', { startDate, endDate, timeframe });
     
     try {
+      // Validate date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (start > end) {
+        throw new Error('A data de início deve ser anterior à data de fim');
+      }
+
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      console.log(`Loading ${diffDays} days of historical data`);
+      
       const data = await getMarketData({
         symbol: 'XAUUSD',
         timeframe,
         startDate,
         endDate,
-        limit: 10000 // Maior limite para histórico completo
+        limit: 10000 // Higher limit for historical view
       });
+
+      console.log(`Received ${data.length} records for history view`);
 
       if (data && data.length > 0) {
         const convertedData: CandleData[] = data.map(item => ({
-          time: new Date(item.timestamp).getTime() / 1000,
-          open: parseFloat(item.open),
-          high: parseFloat(item.high),
-          low: parseFloat(item.low),
-          close: parseFloat(item.close),
+          time: item.time || (new Date(item.timestamp).getTime() / 1000),
+          open: parseFloat(item.open.toString()),
+          high: parseFloat(item.high.toString()),
+          low: parseFloat(item.low.toString()),
+          close: parseFloat(item.close.toString()),
           volume: item.volume || 0
         }));
+
+        console.log(`Converted ${convertedData.length} candles for history view`);
 
         setState({
           data: convertedData,
@@ -48,7 +65,7 @@ export const useHistoryData = () => {
 
         return convertedData;
       } else {
-        throw new Error('Nenhum dado encontrado para o período selecionado');
+        throw new Error(`Nenhum dado encontrado para o período ${startDate} a ${endDate}. Verifique se os dados foram carregados na aba Dados.`);
       }
     } catch (error) {
       console.error('Error loading history data:', error);
@@ -62,6 +79,7 @@ export const useHistoryData = () => {
   }, [getMarketData]);
 
   const clearHistoryData = useCallback(() => {
+    console.log('Clearing history data');
     setState({
       data: [],
       totalCandles: 0,

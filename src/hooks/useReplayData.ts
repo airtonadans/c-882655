@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRealMarketData } from './useRealMarketData';
 import { CandleData } from '../utils/advancedMarketGenerator';
 
@@ -27,29 +27,39 @@ export const useReplayData = () => {
   });
 
   const { getMarketData, isLoading } = useRealMarketData();
-  const intervalRef = useState<NodeJS.Timeout | null>(null)[0];
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadReplayData = useCallback(async (date: string, timeframe: string) => {
     console.log('Loading replay data for date:', date, 'timeframe:', timeframe);
     
     try {
+      // Calculate end date as same day for replay mode
+      const startDate = date;
+      const endDate = date;
+      
+      console.log(`Fetching replay data from ${startDate} to ${endDate}`);
+      
       const data = await getMarketData({
         symbol: 'XAUUSD',
         timeframe,
-        startDate: date,
-        endDate: date,
-        limit: 1000
+        startDate,
+        endDate,
+        limit: 500 // Reasonable limit for replay mode
       });
+
+      console.log(`Received ${data.length} records for replay`);
 
       if (data && data.length > 0) {
         const convertedData: CandleData[] = data.map(item => ({
-          time: new Date(item.timestamp).getTime() / 1000,
-          open: parseFloat(item.open),
-          high: parseFloat(item.high),
-          low: parseFloat(item.low),
-          close: parseFloat(item.close),
+          time: item.time || (new Date(item.timestamp).getTime() / 1000),
+          open: parseFloat(item.open.toString()),
+          high: parseFloat(item.high.toString()),
+          low: parseFloat(item.low.toString()),
+          close: parseFloat(item.close.toString()),
           volume: item.volume || 0
         }));
+
+        console.log(`Converted ${convertedData.length} candles for replay`);
 
         setState(prev => ({
           ...prev,
@@ -64,27 +74,46 @@ export const useReplayData = () => {
 
         return convertedData;
       } else {
-        throw new Error('Nenhum dado encontrado para a data selecionada');
+        throw new Error(`Nenhum dado encontrado para ${date}. Verifique se os dados foram carregados na aba Dados.`);
       }
     } catch (error) {
       console.error('Error loading replay data:', error);
+      setState(prev => ({
+        ...prev,
+        data: [],
+        totalCandles: 0,
+        currentIndex: -1,
+        progress: 0,
+        currentCandle: null,
+        isPlaying: false,
+        isPaused: false
+      }));
       throw error;
     }
   }, [getMarketData]);
 
   const startReplay = useCallback((speed: number) => {
-    if (state.data.length === 0) return;
+    if (state.data.length === 0) {
+      console.warn('No data available for replay');
+      return;
+    }
+
+    console.log(`Starting replay with ${state.data.length} candles at ${speed}x speed`);
 
     setState(prev => ({ ...prev, isPlaying: true, isPaused: false, speed }));
 
-    if (intervalRef) {
-      clearInterval(intervalRef);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
     }
 
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setState(prev => {
         if (prev.currentIndex >= prev.totalCandles - 1) {
-          clearInterval(interval);
+          console.log('Replay completed');
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           return { ...prev, isPlaying: false };
         }
 
@@ -100,16 +129,19 @@ export const useReplayData = () => {
         };
       });
     }, Math.max(50, 1000 / speed));
-  }, [state.data.length, intervalRef]);
+  }, [state.data.length]);
 
   const pauseReplay = useCallback(() => {
+    console.log('Pausing replay');
     setState(prev => ({ ...prev, isPlaying: false, isPaused: true }));
-    if (intervalRef) {
-      clearInterval(intervalRef);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-  }, [intervalRef]);
+  }, []);
 
   const stopReplay = useCallback(() => {
+    console.log('Stopping replay');
     setState(prev => ({
       ...prev,
       isPlaying: false,
@@ -118,25 +150,31 @@ export const useReplayData = () => {
       progress: 0,
       currentCandle: null
     }));
-    if (intervalRef) {
-      clearInterval(intervalRef);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-  }, [intervalRef]);
+  }, []);
 
   const resetReplay = useCallback(() => {
+    console.log('Resetting replay');
     stopReplay();
   }, [stopReplay]);
 
   const changeSpeed = useCallback((newSpeed: number) => {
+    console.log(`Changing replay speed to ${newSpeed}x`);
     setState(prev => ({ ...prev, speed: newSpeed }));
     
-    if (state.isPlaying && intervalRef) {
-      clearInterval(intervalRef);
+    if (state.isPlaying && intervalRef.current) {
+      clearInterval(intervalRef.current);
       
-      const interval = setInterval(() => {
+      intervalRef.current = setInterval(() => {
         setState(prev => {
           if (prev.currentIndex >= prev.totalCandles - 1) {
-            clearInterval(interval);
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
             return { ...prev, isPlaying: false };
           }
 
@@ -153,7 +191,16 @@ export const useReplayData = () => {
         });
       }, Math.max(50, 1000 / newSpeed));
     }
-  }, [state.isPlaying, intervalRef]);
+  }, [state.isPlaying]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   return {
     state,
