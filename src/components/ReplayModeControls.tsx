@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Play, Pause, Square, RotateCcw, Clock, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ interface ReplayModeControlsProps {
   onStopReplay: () => void;
   onResetReplay: () => void;
   onSpeedChange: (speed: number) => void;
+  onJumpToPosition: (position: number) => void;
   isPlaying: boolean;
   isPaused: boolean;
   currentSpeed: number;
@@ -33,6 +33,7 @@ const ReplayModeControls: React.FC<ReplayModeControlsProps> = ({
   onStopReplay,
   onResetReplay,
   onSpeedChange,
+  onJumpToPosition,
   isPlaying,
   isPaused,
   currentSpeed,
@@ -86,6 +87,10 @@ const ReplayModeControls: React.FC<ReplayModeControlsProps> = ({
     const speedValue = newSpeed[0];
     setSpeed(speedValue);
     onSpeedChange(speedValue);
+  };
+
+  const handlePositionChange = (position: number[]) => {
+    onJumpToPosition(position[0]);
   };
 
   return (
@@ -181,6 +186,28 @@ const ReplayModeControls: React.FC<ReplayModeControlsProps> = ({
             <span>20x</span>
           </div>
         </div>
+
+        {/* Controle de Posição (Timeline) */}
+        {totalCandles > 0 && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-300">
+              Posição no Replay
+            </Label>
+            <Slider
+              value={[currentIndex]}
+              min={0}
+              max={totalCandles - 1}
+              step={1}
+              onValueChange={handlePositionChange}
+              className="w-full [&>span[role=slider]]:bg-blue-500 [&>span[role=slider]]:border-blue-400 [&>[data-orientation=horizontal]]:bg-gray-700"
+            />
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>Início</span>
+              <span>Atual: {currentIndex + 1} / {totalCandles}</span>
+              <span>Fim</span>
+            </div>
+          </div>
+        )}
 
         {/* Controles de Reprodução */}
         <div className="grid grid-cols-4 gap-2">
