@@ -59,6 +59,11 @@ const ReplayChart: React.FC<ReplayChartProps> = ({
               
               <span className="text-muted-foreground">Fechamento:</span>
               <span className="font-mono">${currentCandle.close.toFixed(2)}</span>
+              
+              <span className="text-muted-foreground">Volume:</span>
+              <span className="font-mono">
+                {currentCandle.volume ? (currentCandle.volume / 1000000).toFixed(2) + 'M' : '0.00M'}
+              </span>
             </div>
           </div>
         )}

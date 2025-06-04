@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Trade } from './CryptoStrategySimulator';
-import { CandleData } from '../hooks/useReplayMode';
+import { CandleData } from '../utils/advancedMarketGenerator';
 import EChartsCandle from './EChartsCandle';
 
 interface TradingChartProps {
@@ -19,7 +19,7 @@ const TradingChart: React.FC<TradingChartProps> = ({
   replayMode = false,
   onCandleUpdate 
 }) => {
-  // Mock data for demonstration
+  // Mock data for demonstration - ensuring volume is always present
   const mockData: CandleData[] = [
     { time: Date.now() / 1000 - 86400 * 30, open: 2000, high: 2100, low: 1950, close: 2050, volume: 1000000 },
     { time: Date.now() / 1000 - 86400 * 29, open: 2050, high: 2150, low: 2000, close: 2100, volume: 1200000 },

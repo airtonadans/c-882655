@@ -46,7 +46,7 @@ export const useHistoryData = () => {
       console.log(`Received ${data.length} records for history view`);
 
       if (data && data.length > 0) {
-        // Validate and convert data
+        // Validate and convert data - ensuring volume is always present
         const convertedData: CandleData[] = data
           .filter(item => {
             // Validate required fields
@@ -72,7 +72,7 @@ export const useHistoryData = () => {
               high: parseFloat(item.high.toString()),
               low: parseFloat(item.low.toString()),
               close: parseFloat(item.close.toString()),
-              volume: item.volume || 0
+              volume: item.volume || 0 // Garantir que volume sempre existe
             };
           })
           .sort((a, b) => a.time - b.time); // Ensure chronological order

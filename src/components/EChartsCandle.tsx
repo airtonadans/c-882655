@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import * as echarts from 'echarts';
 import { CandleData } from '../utils/advancedMarketGenerator';
 
@@ -21,20 +21,9 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
-  useEffect(() => {
-    if (!chartRef.current) return;
-
-    // Initialize chart
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current, 'dark');
-    }
-
-    const chart = chartInstance.current;
-
-    if (data.length === 0) {
-      chart.clear();
-      return;
-    }
+  // Memoize processed data to avoid unnecessary recalculations
+  const processedData = useMemo(() => {
+    if (data.length === 0) return { chartData: [], valueRange: { min: 0, max: 100 } };
 
     console.log('ECharts - Processing data:', {
       totalData: data.length,
@@ -46,10 +35,9 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
       }))
     });
 
-    // Prepare data for ECharts
+    // Determine visible data based on current index (for replay mode)
     let visibleData = data;
     if (currentIndex >= 0) {
-      // Replay mode - show data up to current index
       visibleData = data.slice(0, currentIndex + 1);
     }
 
@@ -69,21 +57,45 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
       ];
     });
 
-    console.log('ECharts - Chart data prepared:', {
-      visibleLength: visibleData.length,
-      chartDataLength: chartData.length,
-      sampleChartData: chartData.slice(0, 3)
-    });
-
     // Calculate value range for better scaling
     const allValues = visibleData.flatMap(d => [d.open, d.high, d.low, d.close]);
     const minValue = Math.min(...allValues);
     const maxValue = Math.max(...allValues);
     const padding = (maxValue - minValue) * 0.02; // 2% padding
 
+    console.log('ECharts - Chart data prepared:', {
+      visibleLength: visibleData.length,
+      chartDataLength: chartData.length,
+      valueRange: { min: minValue, max: maxValue }
+    });
+
+    return {
+      chartData,
+      valueRange: {
+        min: minValue - padding,
+        max: maxValue + padding
+      }
+    };
+  }, [data, currentIndex]);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    // Initialize chart only once
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current, 'dark');
+    }
+
+    const chart = chartInstance.current;
+
+    if (processedData.chartData.length === 0) {
+      chart.clear();
+      return;
+    }
+
     const option: echarts.EChartsOption = {
-      backgroundColor: '#111827',
-      animation: false,
+      backgroundColor: 'transparent',
+      animation: false, // Disable animations for better performance
       grid: {
         left: '8%',
         right: '8%',
@@ -92,7 +104,7 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
       },
       xAxis: {
         type: 'category',
-        data: chartData.map(item => item[0]),
+        data: processedData.chartData.map(item => item[0]),
         boundaryGap: false,
         axisLine: { onZero: false },
         splitLine: { show: false },
@@ -106,8 +118,8 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
       },
       yAxis: {
         type: 'value',
-        min: minValue - padding,
-        max: maxValue + padding,
+        min: processedData.valueRange.min,
+        max: processedData.valueRange.max,
         axisLabel: {
           formatter: function (value: number) {
             return `$${value.toFixed(2)}`;
@@ -155,7 +167,7 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
         {
           name: 'XAUUSD',
           type: 'candlestick',
-          data: chartData.map(item => [item[1], item[2], item[3], item[4]]), // [open, close, low, high]
+          data: processedData.chartData.map(item => [item[1], item[2], item[3], item[4]]), // [open, close, low, high]
           itemStyle: {
             color: '#22C55E', // Green for bullish
             color0: '#EF4444', // Red for bearish
@@ -183,7 +195,7 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [data, currentIndex]);
+  }, [processedData]);
 
   // Cleanup on unmount
   useEffect(() => {

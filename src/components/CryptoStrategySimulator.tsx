@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import ProfessionalCandleChart from './ProfessionalCandleChart';
 import ReplayModeControls from './ReplayModeControls';
@@ -8,7 +9,7 @@ import { useHistoryData } from '../hooks/useHistoryData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Activity, BarChart3, Zap, Database, History } from 'lucide-react';
+import { TrendingUp, Activity, BarChart3, Database, History, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 export interface Trade {
@@ -40,7 +41,8 @@ const CryptoStrategySimulator = () => {
     pauseReplay,
     stopReplay,
     resetReplay,
-    changeSpeed
+    changeSpeed,
+    jumpToPosition
   } = useReplayData();
 
   // History mode hooks
@@ -72,7 +74,7 @@ const CryptoStrategySimulator = () => {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      {/* Header estilo Binance - Otimizado para mobile */}
+      {/* Header */}
       <div className="bg-gray-900 border-b border-gray-800 shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -85,7 +87,7 @@ const CryptoStrategySimulator = () => {
                   Trading Simulator
                 </h1>
                 <p className="text-xs text-gray-400">
-                  Sistema Profissional de Análise
+                  Sistema Profissional de Análise XAUUSD
                 </p>
               </div>
             </div>
@@ -100,16 +102,16 @@ const CryptoStrategySimulator = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs - Estilo mobile */}
+      {/* Navigation Tabs */}
       <div className="max-w-7xl mx-auto px-4 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6">
-            <TabsList className="grid grid-cols-4 bg-gray-800 border border-gray-700 p-1 w-full max-w-2xl">
+            <TabsList className="grid grid-cols-3 bg-gray-800 border border-gray-700 p-1 w-full max-w-lg">
               <TabsTrigger 
                 value="replay" 
                 className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
               >
-                <Activity className="w-4 h-4" />
+                <Play className="w-4 h-4" />
                 Replay
               </TabsTrigger>
               <TabsTrigger 
@@ -126,31 +128,38 @@ const CryptoStrategySimulator = () => {
                 <Database className="w-4 h-4" />
                 Dados
               </TabsTrigger>
-              <TabsTrigger 
-                value="strategy"
-                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
-              >
-                <TrendingUp className="w-4 h-4" />
-                Estratégias
-              </TabsTrigger>
             </TabsList>
           </div>
           
-          <TabsContent value="replay" className="space-y-4">
-            {/* Controles do Replay */}
-            <ReplayModeControls
-              onStartReplay={handleStartReplay}
-              onPauseReplay={pauseReplay}
-              onStopReplay={stopReplay}
-              onResetReplay={resetReplay}
-              onSpeedChange={changeSpeed}
-              isPlaying={replayState.isPlaying}
-              isPaused={replayState.isPaused}
-              currentSpeed={replayState.speed}
-              progress={replayState.progress}
-              totalCandles={replayState.totalCandles}
-              currentIndex={replayState.currentIndex}
-            />
+          <TabsContent value="replay" className="space-y-6">
+            {/* Modo Replay - Data específica com controles */}
+            <Card className="p-4 bg-gray-900 border-gray-700">
+              <div className="flex items-center gap-2 mb-4">
+                <Play className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-lg font-semibold text-white">Modo Replay</h2>
+                <Badge className="bg-blue-600 text-white text-xs">
+                  Data Específica
+                </Badge>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                Selecione uma data específica e acompanhe a evolução dos preços em tempo acelerado.
+              </p>
+              
+              <ReplayModeControls
+                onStartReplay={handleStartReplay}
+                onPauseReplay={pauseReplay}
+                onStopReplay={stopReplay}
+                onResetReplay={resetReplay}
+                onSpeedChange={changeSpeed}
+                onJumpToPosition={jumpToPosition}
+                isPlaying={replayState.isPlaying}
+                isPaused={replayState.isPaused}
+                currentSpeed={replayState.speed}
+                progress={replayState.progress}
+                totalCandles={replayState.totalCandles}
+                currentIndex={replayState.currentIndex}
+              />
+            </Card>
 
             {/* Gráfico do Replay */}
             <ProfessionalCandleChart
@@ -160,7 +169,7 @@ const CryptoStrategySimulator = () => {
               isActive={replayState.isPlaying || replayState.currentIndex >= 0}
             />
 
-            {/* Status do Replay */}
+            {/* Status Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="p-4 bg-gray-900 border-gray-700">
                 <div className="flex items-center gap-3">
@@ -168,7 +177,7 @@ const CryptoStrategySimulator = () => {
                     <Activity className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400">Status Replay</p>
+                    <p className="text-xs text-gray-400">Status</p>
                     <p className="text-sm font-semibold text-white">
                       {replayState.isPlaying ? 'Executando' : replayState.isPaused ? 'Pausado' : 'Parado'}
                     </p>
@@ -182,7 +191,7 @@ const CryptoStrategySimulator = () => {
                     <BarChart3 className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400">Candles</p>
+                    <p className="text-xs text-gray-400">Progresso</p>
                     <p className="text-sm font-semibold text-white">
                       {replayState.currentIndex + 1} / {replayState.totalCandles}
                     </p>
@@ -207,12 +216,25 @@ const CryptoStrategySimulator = () => {
           </TabsContent>
           
           <TabsContent value="history" className="space-y-6">
-            {/* Controles do Histórico */}
-            <HistoryModeControls
-              onLoadHistory={handleLoadHistory}
-              isLoading={historyLoading}
-              totalCandles={historyState.totalCandles}
-            />
+            {/* Modo Histórico - Período completo sem controles */}
+            <Card className="p-4 bg-gray-900 border-gray-700">
+              <div className="flex items-center gap-2 mb-4">
+                <History className="w-5 h-5 text-blue-500" />
+                <h2 className="text-lg font-semibold text-white">Modo Histórico</h2>
+                <Badge className="bg-purple-600 text-white text-xs">
+                  Período Completo
+                </Badge>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                Visualize o gráfico completo de um período específico sem animação.
+              </p>
+              
+              <HistoryModeControls
+                onLoadHistory={handleLoadHistory}
+                isLoading={historyLoading}
+                totalCandles={historyState.totalCandles}
+              />
+            </Card>
 
             {/* Gráfico do Histórico */}
             {historyState.isLoaded && (
@@ -229,35 +251,33 @@ const CryptoStrategySimulator = () => {
               <Card className="p-8 bg-gray-900 border-gray-700 text-center">
                 <History className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">
-                  Histórico de Preços
+                  Gráfico Histórico
                 </h3>
                 <p className="text-gray-400 mb-6">
                   Selecione um período acima para carregar o gráfico histórico completo.
                 </p>
                 <Badge variant="secondary" className="bg-gray-700 text-gray-300">
-                  Aguardando Seleção
+                  Aguardando Período
                 </Badge>
               </Card>
             )}
           </TabsContent>
           
           <TabsContent value="data" className="space-y-6">
-            <DataSourceManager />
-          </TabsContent>
-          
-          <TabsContent value="strategy" className="space-y-6">
-            <Card className="p-8 bg-gray-900 border-gray-700 text-center">
-              <TrendingUp className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Estratégias de Trading
-              </h3>
-              <p className="text-gray-400 mb-6">
-                Módulo de estratégias automatizadas em desenvolvimento.
+            <Card className="p-4 bg-gray-900 border-gray-700">
+              <div className="flex items-center gap-2 mb-4">
+                <Database className="w-5 h-5 text-green-500" />
+                <h2 className="text-lg font-semibold text-white">Gerenciamento de Dados</h2>
+                <Badge className="bg-green-600 text-white text-xs">
+                  Fonte: Kaggle API
+                </Badge>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                Configure e gerencie os dados de mercado para análise.
               </p>
-              <Badge variant="secondary" className="bg-gray-700 text-gray-300">
-                Em Breve
-              </Badge>
             </Card>
+            
+            <DataSourceManager />
           </TabsContent>
         </Tabs>
       </div>

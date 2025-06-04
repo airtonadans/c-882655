@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRealMarketData } from './useRealMarketData';
 import { CandleData } from '../utils/advancedMarketGenerator';
@@ -48,7 +49,7 @@ export const useReplayData = () => {
       console.log(`Received ${data.length} records for replay`);
 
       if (data && data.length > 0) {
-        // Validate and convert data
+        // Validate and convert data - ensuring volume is always present
         const convertedData: CandleData[] = data
           .filter(item => {
             // Validate required fields
@@ -74,7 +75,7 @@ export const useReplayData = () => {
               high: parseFloat(item.high.toString()),
               low: parseFloat(item.low.toString()),
               close: parseFloat(item.close.toString()),
-              volume: item.volume || 0
+              volume: item.volume || 0 // Garantir que volume sempre existe
             };
           })
           .sort((a, b) => a.time - b.time); // Ensure chronological order
@@ -218,6 +219,22 @@ export const useReplayData = () => {
     }
   }, [state.isPlaying]);
 
+  const jumpToPosition = useCallback((position: number) => {
+    console.log(`Jumping to position ${position}`);
+    setState(prev => {
+      const newIndex = Math.max(0, Math.min(position, prev.totalCandles - 1));
+      const newCandle = prev.data[newIndex] || null;
+      const progress = prev.totalCandles > 0 ? ((newIndex + 1) / prev.totalCandles) * 100 : 0;
+
+      return {
+        ...prev,
+        currentIndex: newIndex,
+        progress,
+        currentCandle: newCandle
+      };
+    });
+  }, []);
+
   // Cleanup interval on unmount
   useEffect(() => {
     return () => {
@@ -235,6 +252,7 @@ export const useReplayData = () => {
     pauseReplay,
     stopReplay,
     resetReplay,
-    changeSpeed
+    changeSpeed,
+    jumpToPosition
   };
 };
