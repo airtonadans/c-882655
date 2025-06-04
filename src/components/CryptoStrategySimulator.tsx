@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ProfessionalCandleChart from './ProfessionalCandleChart';
 import ReplayModeControls from './ReplayModeControls';
@@ -30,7 +29,7 @@ export interface SimulationData {
 }
 
 const CryptoStrategySimulator = () => {
-  const [activeTab, setActiveTab] = useState('replay');
+  const [activeTab, setActiveTab] = useState('data'); // Start with data tab for audit
   
   // Replay mode hooks
   const {
@@ -93,9 +92,9 @@ const CryptoStrategySimulator = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              <Badge className="text-xs bg-green-600 text-white">
+              <Badge className="text-xs bg-red-600 text-white">
                 <Database className="w-3 h-3 mr-1" />
-                Dados Reais
+                Em Auditoria
               </Badge>
             </div>
           </div>
@@ -106,7 +105,14 @@ const CryptoStrategySimulator = () => {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6">
-            <TabsList className="grid grid-cols-3 bg-gray-800 border border-gray-700 p-1 w-full max-w-lg">
+            <TabsList className="grid grid-cols-4 bg-gray-800 border border-gray-700 p-1 w-full max-w-2xl">
+              <TabsTrigger 
+                value="data"
+                className="flex items-center gap-2 data-[state=active]:bg-red-500 data-[state=active]:text-white text-gray-300"
+              >
+                <Database className="w-4 h-4" />
+                Auditoria
+              </TabsTrigger>
               <TabsTrigger 
                 value="replay" 
                 className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
@@ -122,7 +128,7 @@ const CryptoStrategySimulator = () => {
                 Histórico
               </TabsTrigger>
               <TabsTrigger 
-                value="data"
+                value="manager"
                 className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
               >
                 <Database className="w-4 h-4" />
@@ -130,6 +136,10 @@ const CryptoStrategySimulator = () => {
               </TabsTrigger>
             </TabsList>
           </div>
+          
+          <TabsContent value="data" className="space-y-6">
+            <DataAuditPanel />
+          </TabsContent>
           
           <TabsContent value="replay" className="space-y-6">
             {/* Modo Replay - Data específica com controles */}
@@ -263,7 +273,7 @@ const CryptoStrategySimulator = () => {
             )}
           </TabsContent>
           
-          <TabsContent value="data" className="space-y-6">
+          <TabsContent value="manager" className="space-y-6">
             <Card className="p-4 bg-gray-900 border-gray-700">
               <div className="flex items-center gap-2 mb-4">
                 <Database className="w-5 h-5 text-green-500" />

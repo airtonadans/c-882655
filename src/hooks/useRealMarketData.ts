@@ -34,7 +34,7 @@ export const useRealMarketData = (): RealMarketDataHook => {
   const fetchKaggleData = useCallback(async (params: FetchDataParams) => {
     setIsLoading(true);
     try {
-      console.log('Fetching Kaggle data with params:', params);
+      console.log('🔍 [AUDIT] Fetching Kaggle data with params:', params);
       
       // Validate date range
       const start = new Date(params.startDate);
@@ -60,8 +60,10 @@ export const useRealMarketData = (): RealMarketDataHook => {
         }
       });
 
+      console.log('🔍 [AUDIT] Raw API Response:', data);
+
       if (error) {
-        console.error('Supabase function error:', error);
+        console.error('🚨 [ERROR] Supabase function error:', error);
         throw new Error(`Erro na função: ${error.message}`);
       }
 
@@ -70,6 +72,12 @@ export const useRealMarketData = (): RealMarketDataHook => {
           ? `Dados encontrados no cache! ${data.tickCount} registros disponíveis.`
           : `Dados carregados com sucesso! ${data.tickCount} ticks importados.`;
         
+        console.log('✅ [SUCCESS] Data fetch completed:', {
+          source: data.source,
+          tickCount: data.tickCount,
+          dateRange: data.dateRange
+        });
+        
         toast.success(message);
         await refreshAvailableRanges();
       } else {
@@ -77,7 +85,7 @@ export const useRealMarketData = (): RealMarketDataHook => {
       }
 
     } catch (error: any) {
-      console.error('Error fetching Kaggle data:', error);
+      console.error('🚨 [ERROR] Error fetching Kaggle data:', error);
       toast.error(`Erro ao buscar dados: ${error.message}`);
       throw error;
     } finally {
@@ -87,7 +95,7 @@ export const useRealMarketData = (): RealMarketDataHook => {
 
   const getMarketData = useCallback(async (params: GetMarketDataParams = {}) => {
     try {
-      console.log('Getting market data with params:', params);
+      console.log('🔍 [AUDIT] Getting market data with params:', params);
       
       // Validate parameters
       if (params.startDate && params.endDate) {
@@ -106,18 +114,84 @@ export const useRealMarketData = (): RealMarketDataHook => {
       if (params.endDate) queryParams.append('endDate', params.endDate);
       if (params.limit) queryParams.append('limit', params.limit.toString());
 
+      console.log('🔗 [API CALL] Query URL:', queryParams.toString());
+
       const { data, error } = await supabase.functions.invoke('get-market-data?' + queryParams.toString());
 
       if (error) {
-        console.error('Supabase function error:', error);
+        console.error('🚨 [ERROR] Supabase function error:', error);
         throw new Error(`Erro na função: ${error.message}`);
       }
 
       if (data?.success) {
-        console.log(`Successfully retrieved ${data.count} records`);
+        console.log('✅ [SUCCESS] Market data retrieved:', {
+          count: data.count,
+          symbol: data.symbol,
+          timeframe: data.timeframe,
+          dateRange: data.dateRange
+        });
+
+        // 🔍 DETAILED DATA AUDIT
+        console.log('📊 [DATA AUDIT] First 5 records from API:', data.data?.slice(0, 5));
+        console.log('📊 [DATA AUDIT] Last 5 records from API:', data.data?.slice(-5));
+        
+        if (data.data && data.data.length > 0) {
+          const sample = data.data[0];
+          console.log('🧪 [SAMPLE ANALYSIS] First record structure:', {
+            timestamp: sample.timestamp,
+            time: sample.time,
+            timeFormatted: new Date(sample.time * 1000).toISOString(),
+            open: sample.open,
+            high: sample.high,
+            low: sample.low,
+            close: sample.close,
+            volume: sample.volume,
+            dataTypes: {
+              timestamp: typeof sample.timestamp,
+              time: typeof sample.time,
+              open: typeof sample.open,
+              high: typeof sample.high,
+              low: typeof sample.low,
+              close: typeof sample.close,
+              volume: typeof sample.volume
+            }
+          });
+
+          // Check for data integrity issues
+          const integrityChecks = {
+            hasVolume: data.data.filter(d => d.volume > 0).length,
+            totalRecords: data.data.length,
+            priceVariation: Math.abs(data.data[data.data.length - 1]?.close - data.data[0]?.open),
+            avgVolume: data.data.reduce((sum, d) => sum + (d.volume || 0), 0) / data.data.length,
+            uniqueTimes: new Set(data.data.map(d => d.time)).size
+          };
+
+          console.log('🔍 [INTEGRITY CHECK]:', {
+            ...integrityChecks,
+            volumePercentage: (integrityChecks.hasVolume / integrityChecks.totalRecords * 100).toFixed(2) + '%',
+            duplicateTimes: integrityChecks.totalRecords - integrityChecks.uniqueTimes
+          });
+
+          // Check for unrealistic price movements
+          const priceMovements = [];
+          for (let i = 1; i < Math.min(data.data.length, 10); i++) {
+            const prev = data.data[i - 1];
+            const curr = data.data[i];
+            const change = ((curr.close - prev.close) / prev.close) * 100;
+            priceMovements.push({
+              index: i,
+              prevClose: prev.close,
+              currClose: curr.close,
+              changePercent: change.toFixed(4) + '%',
+              time: new Date(curr.time * 1000).toISOString()
+            });
+          }
+          console.log('📈 [PRICE MOVEMENTS] First 10 candle changes:', priceMovements);
+        }
+
         return data.data || [];
       } else {
-        console.warn('No data returned:', data?.error);
+        console.warn('⚠️ [WARNING] No data returned:', data?.error);
         if (data?.error?.includes('Nenhum dado encontrado')) {
           toast.warning('Nenhum dado encontrado para o período. Carregue os dados primeiro na aba "Dados".');
         }
@@ -125,7 +199,7 @@ export const useRealMarketData = (): RealMarketDataHook => {
       }
 
     } catch (error: any) {
-      console.error('Error getting market data:', error);
+      console.error('🚨 [ERROR] Error getting market data:', error);
       toast.error(`Erro ao obter dados: ${error.message}`);
       return [];
     }
