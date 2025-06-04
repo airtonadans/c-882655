@@ -93,12 +93,9 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
       xAxis: {
         type: 'category',
         data: chartData.map(item => item[0]),
-        scale: true,
         boundaryGap: false,
         axisLine: { onZero: false },
         splitLine: { show: false },
-        min: 'dataMin',
-        max: 'dataMax',
         axisLabel: {
           formatter: function (value: string) {
             const date = new Date(value);
@@ -108,7 +105,7 @@ const EChartsCandle: React.FC<EChartsCandleProps> = ({
         }
       },
       yAxis: {
-        scale: true,
+        type: 'value',
         min: minValue - padding,
         max: maxValue + padding,
         axisLabel: {

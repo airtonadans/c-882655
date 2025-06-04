@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { CandleData } from '../hooks/useReplayMode';
+import { CandleData } from '../utils/advancedMarketGenerator';
 import EChartsCandle from './EChartsCandle';
 
 interface ReplayChartProps {

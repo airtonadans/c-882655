@@ -1,7 +1,8 @@
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Trade } from './CryptoStrategySimulator';
 import { CandleData } from '../hooks/useReplayMode';
+import EChartsCandle from './EChartsCandle';
 
 interface TradingChartProps {
   symbol: string;
@@ -18,105 +19,24 @@ const TradingChart: React.FC<TradingChartProps> = ({
   replayMode = false,
   onCandleUpdate 
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const tvWidgetRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Limpar o container antes de criar novo widget
-    containerRef.current.innerHTML = '';
-
-    if (replayMode) {
-      // Criar widget especial para modo replay
-      const script = document.createElement('script');
-      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-      script.type = 'text/javascript';
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        autosize: true,
-        symbol: `BINANCE:${symbol}`,
-        interval: interval,
-        timezone: "Etc/UTC",
-        theme: "dark",
-        style: "1",
-        locale: "br",
-        enable_publishing: false,
-        hide_top_toolbar: false,
-        hide_legend: true,
-        save_image: false,
-        container_id: "tradingview_chart_replay",
-        studies: [
-          "STD;DEMA",
-          "STD;ATR"
-        ],
-        overrides: {
-          "paneProperties.background": "#0c0a09",
-          "paneProperties.vertGridProperties.color": "#262626",
-          "paneProperties.horzGridProperties.color": "#262626",
-          "symbolWatermarkProperties.transparency": 90,
-          "scalesProperties.textColor": "#d4d4d8"
-        }
-      });
-
-      containerRef.current.appendChild(script);
-
-      // Configurar callback para replay
-      if (onCandleUpdate) {
-        onCandleUpdate((candle: CandleData) => {
-          console.log('Atualizando candle no gráfico:', candle);
-          // Aqui seria a integração real com o gráfico para adicionar candles progressivamente
-        });
-      }
-    } else {
-      // Widget normal para modo estratégia
-      const script = document.createElement('script');
-      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-      script.type = 'text/javascript';
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        autosize: true,
-        symbol: `BINANCE:${symbol}`,
-        interval: interval,
-        timezone: "Etc/UTC",
-        theme: "dark",
-        style: "1",
-        locale: "br",
-        enable_publishing: false,
-        hide_top_toolbar: false,
-        hide_legend: true,
-        save_image: false,
-        container_id: "tradingview_chart",
-        studies: [
-          "STD;DEMA",
-          "STD;ATR"
-        ],
-        overrides: {
-          "paneProperties.background": "#0c0a09",
-          "paneProperties.vertGridProperties.color": "#262626",
-          "paneProperties.horzGridProperties.color": "#262626",
-          "symbolWatermarkProperties.transparency": 90,
-          "scalesProperties.textColor": "#d4d4d8"
-        }
-      });
-
-      containerRef.current.appendChild(script);
-    }
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
-    };
-  }, [symbol, interval, replayMode, onCandleUpdate]);
+  // Mock data for demonstration
+  const mockData: CandleData[] = [
+    { time: Date.now() / 1000 - 86400 * 30, open: 2000, high: 2100, low: 1950, close: 2050, volume: 1000000 },
+    { time: Date.now() / 1000 - 86400 * 29, open: 2050, high: 2150, low: 2000, close: 2100, volume: 1200000 },
+    { time: Date.now() / 1000 - 86400 * 28, open: 2100, high: 2200, low: 2050, close: 2180, volume: 980000 },
+  ];
 
   return (
     <div className="relative">
-      <div 
-        ref={containerRef}
-        className="h-[500px] md:h-[600px] w-full rounded-lg border border-border bg-card"
-        id={replayMode ? "tradingview_chart_replay" : "tradingview_chart"}
-      />
+      <div className="h-[500px] md:h-[600px] w-full rounded-lg border border-border bg-card">
+        <EChartsCandle 
+          data={mockData}
+          currentIndex={mockData.length - 1}
+          currentCandle={mockData[mockData.length - 1]}
+          isActive={true}
+          height="100%"
+        />
+      </div>
       
       {/* Overlay para modo replay */}
       {replayMode && (
