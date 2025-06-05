@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import ProfessionalCandleChart from './ProfessionalCandleChart';
 import ReplayModeControls from './ReplayModeControls';
 import HistoryModeControls from './HistoryModeControls';
 import DataSourceManager from './DataSourceManager';
+import DataAuditPanel from './DataAuditPanel';
 import { useReplayData } from '../hooks/useReplayData';
 import { useHistoryData } from '../hooks/useHistoryData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
