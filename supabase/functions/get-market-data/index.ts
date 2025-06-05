@@ -85,23 +85,23 @@ serve(async (req) => {
       )
     }
 
-    // Process data according to timeframe
-    const processedData = processDataByTimeframe(data, timeframe)
-    console.log(`[GET-MARKET-DATA] Processed to ${processedData.length} records for timeframe ${timeframe}`)
+    // Process data according to timeframe with proper aggregation
+    const processedData = aggregateDataByTimeframe(data, timeframe)
+    console.log(`[GET-MARKET-DATA] Aggregated to ${processedData.length} records for timeframe ${timeframe}`)
 
     // Convert to chart format with proper timestamp handling
-    const formattedData = processedData.map((tick: any) => {
-      const timestamp = new Date(tick.timestamp)
+    const formattedData = processedData.map((candle: any) => {
+      const timestamp = new Date(candle.timestamp)
       const unixTime = Math.floor(timestamp.getTime() / 1000)
       
       return {
-        timestamp: tick.timestamp,
+        timestamp: candle.timestamp,
         time: unixTime,
-        open: parseFloat(tick.open?.toString() || '0'),
-        high: parseFloat(tick.high?.toString() || '0'),
-        low: parseFloat(tick.low?.toString() || '0'),
-        close: parseFloat(tick.close?.toString() || '0'),
-        volume: parseInt(tick.volume?.toString() || '0')
+        open: parseFloat(candle.open?.toString() || '0'),
+        high: parseFloat(candle.high?.toString() || '0'),
+        low: parseFloat(candle.low?.toString() || '0'),
+        close: parseFloat(candle.close?.toString() || '0'),
+        volume: parseInt(candle.volume?.toString() || '0')
       }
     })
 
@@ -109,6 +109,11 @@ serve(async (req) => {
     
     if (formattedData.length > 0) {
       console.log(`[GET-MARKET-DATA] Sample data point:`, formattedData[0])
+      console.log(`[GET-MARKET-DATA] Time interval check:`, {
+        firstTime: formattedData[0].timestamp,
+        secondTime: formattedData[1]?.timestamp,
+        intervalSeconds: formattedData[1] ? (formattedData[1].time - formattedData[0].time) : 'N/A'
+      })
     }
 
     return new Response(
@@ -142,84 +147,122 @@ serve(async (req) => {
   }
 })
 
-function processDataByTimeframe(data: any[], timeframe: string) {
-  console.log(`[PROCESS-DATA] Processing ${data.length} records for timeframe ${timeframe}`)
+function aggregateDataByTimeframe(data: any[], timeframe: string) {
+  console.log(`[AGGREGATE-DATA] Starting aggregation of ${data.length} records for timeframe ${timeframe}`)
   
-  // For 5min timeframe, return data as is since we generate 5-minute intervals
-  if (timeframe === '5min') {
-    return data
+  if (!data || data.length === 0) {
+    return []
   }
 
-  const intervalMinutes = getIntervalMinutes(timeframe)
+  const intervalSeconds = getIntervalSeconds(timeframe)
+  console.log(`[AGGREGATE-DATA] Using interval of ${intervalSeconds} seconds`)
   
-  // For timeframes smaller than our base interval, return raw data
-  if (intervalMinutes <= 5) {
-    return data
-  }
-
-  // Group data by time intervals for aggregation
-  const grouped: { [key: string]: any[] } = {}
+  // Group data by time intervals
+  const grouped = new Map<number, any[]>()
   
   data.forEach(tick => {
     const tickTime = new Date(tick.timestamp)
+    const tickUnixTime = Math.floor(tickTime.getTime() / 1000)
     
-    // Calculate the interval start time
-    const intervalStart = new Date(tickTime)
-    intervalStart.setMinutes(Math.floor(intervalStart.getMinutes() / intervalMinutes) * intervalMinutes, 0, 0)
+    // Calculate the interval start time (floor to the nearest interval)
+    const intervalStart = Math.floor(tickUnixTime / intervalSeconds) * intervalSeconds
     
-    const key = intervalStart.toISOString()
-    if (!grouped[key]) {
-      grouped[key] = []
+    if (!grouped.has(intervalStart)) {
+      grouped.set(intervalStart, [])
     }
-    grouped[key].push(tick)
+    grouped.get(intervalStart)!.push(tick)
   })
 
-  console.log(`[PROCESS-DATA] Grouped into ${Object.keys(grouped).length} intervals`)
+  console.log(`[AGGREGATE-DATA] Grouped into ${grouped.size} intervals`)
 
-  // Aggregate grouped data
-  const aggregated = Object.keys(grouped)
-    .sort()
-    .map(key => {
-      const group = grouped[key]
-      if (group.length === 0) return null
+  // Aggregate grouped data into OHLCV candles
+  const aggregatedCandles: any[] = []
+  
+  // Sort intervals to ensure chronological order
+  const sortedIntervals = Array.from(grouped.keys()).sort((a, b) => a - b)
+  
+  sortedIntervals.forEach(intervalStart => {
+    const group = grouped.get(intervalStart)!
+    
+    if (group.length === 0) return
 
-      // Sort group by timestamp to ensure proper OHLC calculation
-      group.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    // Sort group by timestamp to ensure proper OHLC calculation
+    group.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-      const open = parseFloat(group[0].open?.toString() || '0')
-      const close = parseFloat(group[group.length - 1].close?.toString() || '0')
-      const high = Math.max(...group.map(t => parseFloat(t.high?.toString() || '0')))
-      const low = Math.min(...group.map(t => parseFloat(t.low?.toString() || '0')))
-      const volume = group.reduce((sum, t) => sum + (parseInt(t.volume?.toString() || '0')), 0)
-
-      return {
-        symbol: group[0].symbol,
-        timestamp: key,
-        open: open,
-        high: high,
-        low: low,
-        close: close,
-        volume: volume
-      }
+    // Calculate OHLCV for this interval
+    const open = parseFloat(group[0].open?.toString() || group[0].close?.toString() || '0')
+    const close = parseFloat(group[group.length - 1].close?.toString() || group[group.length - 1].open?.toString() || '0')
+    
+    // Get all price values to calculate high and low
+    const allPrices: number[] = []
+    group.forEach(tick => {
+      const prices = [
+        parseFloat(tick.open?.toString() || '0'),
+        parseFloat(tick.high?.toString() || '0'),
+        parseFloat(tick.low?.toString() || '0'),
+        parseFloat(tick.close?.toString() || '0')
+      ].filter(p => p > 0)
+      allPrices.push(...prices)
     })
-    .filter(Boolean)
+    
+    const high = allPrices.length > 0 ? Math.max(...allPrices) : open
+    const low = allPrices.length > 0 ? Math.min(...allPrices) : open
+    const volume = group.reduce((sum, tick) => sum + (parseInt(tick.volume?.toString() || '0')), 0)
 
-  console.log(`[PROCESS-DATA] Aggregated to ${aggregated.length} records`)
-  return aggregated
+    // Create ISO timestamp for the interval start
+    const intervalTimestamp = new Date(intervalStart * 1000).toISOString()
+
+    const aggregatedCandle = {
+      symbol: group[0].symbol,
+      timestamp: intervalTimestamp,
+      open: open,
+      high: high,
+      low: low,
+      close: close,
+      volume: volume,
+      tickCount: group.length
+    }
+
+    aggregatedCandles.push(aggregatedCandle)
+  })
+
+  console.log(`[AGGREGATE-DATA] Created ${aggregatedCandles.length} aggregated candles`)
+  
+  if (aggregatedCandles.length > 0) {
+    console.log(`[AGGREGATE-DATA] Sample aggregated candle:`, {
+      timestamp: aggregatedCandles[0].timestamp,
+      ohlc: {
+        open: aggregatedCandles[0].open,
+        high: aggregatedCandles[0].high,
+        low: aggregatedCandles[0].low,
+        close: aggregatedCandles[0].close
+      },
+      volume: aggregatedCandles[0].volume,
+      tickCount: aggregatedCandles[0].tickCount
+    })
+  }
+
+  return aggregatedCandles
 }
 
-function getIntervalMinutes(timeframe: string): number {
+function getIntervalSeconds(timeframe: string): number {
   switch (timeframe) {
-    case '1min': return 1
-    case '2min': return 2
-    case '5min': return 5
-    case '10min': return 10
-    case '15min': return 15
-    case '30min': return 30
-    case '1h': return 60
-    case '2h': return 120
-    case '4h': return 240
-    case '1d': return 1440
-    default: return 5
+    case '1s': return 1
+    case '5s': return 5
+    case '10s': return 10
+    case '30s': return 30
+    case '1min': return 60
+    case '2min': return 120
+    case '5min': return 300
+    case '10min': return 600
+    case '15min': return 900
+    case '30min': return 1800
+    case '1h': return 3600
+    case '2h': return 7200
+    case '4h': return 14400
+    case '1d': return 86400
+    default: 
+      console.log(`[GET-INTERVAL] Unknown timeframe ${timeframe}, defaulting to 5min`)
+      return 300
   }
 }
