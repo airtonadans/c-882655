@@ -8,6 +8,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -20,7 +21,13 @@ serve(async (req) => {
     const endDate = url.searchParams.get('endDate')
     const limit = parseInt(url.searchParams.get('limit') || '1000')
 
-    console.log(`Getting market data for ${symbol}, timeframe: ${timeframe}, dates: ${startDate} to ${endDate}, limit: ${limit}`)
+    console.log(`[GET-MARKET-DATA] Request params:`, {
+      symbol,
+      timeframe,
+      startDate,
+      endDate,
+      limit
+    })
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -38,13 +45,13 @@ serve(async (req) => {
     if (startDate) {
       const startDateTime = new Date(startDate + 'T00:00:00.000Z').toISOString()
       query = query.gte('timestamp', startDateTime)
-      console.log(`Applied start date filter: ${startDateTime}`)
+      console.log(`[GET-MARKET-DATA] Applied start date filter: ${startDateTime}`)
     }
     
     if (endDate) {
       const endDateTime = new Date(endDate + 'T23:59:59.999Z').toISOString()
       query = query.lte('timestamp', endDateTime)
-      console.log(`Applied end date filter: ${endDateTime}`)
+      console.log(`[GET-MARKET-DATA] Applied end date filter: ${endDateTime}`)
     }
 
     // Apply limit
@@ -53,14 +60,14 @@ serve(async (req) => {
     const { data, error } = await query
 
     if (error) {
-      console.error('Database query error:', error)
-      throw error
+      console.error('[GET-MARKET-DATA] Database query error:', error)
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    console.log(`Query returned ${data?.length || 0} records`)
+    console.log(`[GET-MARKET-DATA] Query returned ${data?.length || 0} records`)
 
     if (!data || data.length === 0) {
-      console.log('No data found for the specified criteria')
+      console.log('[GET-MARKET-DATA] No data found for the specified criteria')
       return new Response(
         JSON.stringify({
           success: false,
@@ -78,9 +85,9 @@ serve(async (req) => {
       )
     }
 
-    // Process data according to timeframe with improved aggregation
+    // Process data according to timeframe
     const processedData = processDataByTimeframe(data, timeframe)
-    console.log(`Processed to ${processedData.length} records for timeframe ${timeframe}`)
+    console.log(`[GET-MARKET-DATA] Processed to ${processedData.length} records for timeframe ${timeframe}`)
 
     // Convert to chart format with proper timestamp handling
     const formattedData = processedData.map((tick: any) => {
@@ -90,16 +97,19 @@ serve(async (req) => {
       return {
         timestamp: tick.timestamp,
         time: unixTime,
-        open: parseFloat(tick.open.toString()),
-        high: parseFloat(tick.high.toString()),
-        low: parseFloat(tick.low.toString()),
-        close: parseFloat(tick.close.toString()),
-        volume: tick.volume || 0
+        open: parseFloat(tick.open?.toString() || '0'),
+        high: parseFloat(tick.high?.toString() || '0'),
+        low: parseFloat(tick.low?.toString() || '0'),
+        close: parseFloat(tick.close?.toString() || '0'),
+        volume: parseInt(tick.volume?.toString() || '0')
       }
     })
 
-    console.log(`Final formatted data: ${formattedData.length} records`)
-    console.log(`Sample data point:`, formattedData[0])
+    console.log(`[GET-MARKET-DATA] Final formatted data: ${formattedData.length} records`)
+    
+    if (formattedData.length > 0) {
+      console.log(`[GET-MARKET-DATA] Sample data point:`, formattedData[0])
+    }
 
     return new Response(
       JSON.stringify({
@@ -117,7 +127,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in get-market-data function:', error)
+    console.error('[GET-MARKET-DATA] Function error:', error)
     return new Response(
       JSON.stringify({
         error: `Erro ao obter dados: ${error.message}`,
@@ -133,7 +143,7 @@ serve(async (req) => {
 })
 
 function processDataByTimeframe(data: any[], timeframe: string) {
-  console.log(`Processing ${data.length} records for timeframe ${timeframe}`)
+  console.log(`[PROCESS-DATA] Processing ${data.length} records for timeframe ${timeframe}`)
   
   // For 5min timeframe, return data as is since we generate 5-minute intervals
   if (timeframe === '5min') {
@@ -164,7 +174,7 @@ function processDataByTimeframe(data: any[], timeframe: string) {
     grouped[key].push(tick)
   })
 
-  console.log(`Grouped into ${Object.keys(grouped).length} intervals`)
+  console.log(`[PROCESS-DATA] Grouped into ${Object.keys(grouped).length} intervals`)
 
   // Aggregate grouped data
   const aggregated = Object.keys(grouped)
@@ -176,11 +186,11 @@ function processDataByTimeframe(data: any[], timeframe: string) {
       // Sort group by timestamp to ensure proper OHLC calculation
       group.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-      const open = parseFloat(group[0].open.toString())
-      const close = parseFloat(group[group.length - 1].close.toString())
-      const high = Math.max(...group.map(t => parseFloat(t.high.toString())))
-      const low = Math.min(...group.map(t => parseFloat(t.low.toString())))
-      const volume = group.reduce((sum, t) => sum + (parseInt(t.volume) || 0), 0)
+      const open = parseFloat(group[0].open?.toString() || '0')
+      const close = parseFloat(group[group.length - 1].close?.toString() || '0')
+      const high = Math.max(...group.map(t => parseFloat(t.high?.toString() || '0')))
+      const low = Math.min(...group.map(t => parseFloat(t.low?.toString() || '0')))
+      const volume = group.reduce((sum, t) => sum + (parseInt(t.volume?.toString() || '0')), 0)
 
       return {
         symbol: group[0].symbol,
@@ -194,7 +204,7 @@ function processDataByTimeframe(data: any[], timeframe: string) {
     })
     .filter(Boolean)
 
-  console.log(`Aggregated to ${aggregated.length} records`)
+  console.log(`[PROCESS-DATA] Aggregated to ${aggregated.length} records`)
   return aggregated
 }
 

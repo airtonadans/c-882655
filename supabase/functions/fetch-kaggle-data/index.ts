@@ -8,6 +8,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -15,7 +16,11 @@ serve(async (req) => {
   try {
     const { symbol = 'XAUUSD', startDate, endDate } = await req.json()
 
-    console.log(`Fetching data for ${symbol} from ${startDate} to ${endDate}`)
+    console.log(`[FETCH-KAGGLE-DATA] Request:`, { symbol, startDate, endDate })
+
+    if (!startDate || !endDate) {
+      throw new Error('startDate e endDate são obrigatórios')
+    }
 
     // Create Supabase client
     const supabase = createClient(
@@ -26,7 +31,7 @@ serve(async (req) => {
     // Check if data already exists in the database
     const existingData = await checkExistingData(supabase, symbol, startDate, endDate)
     if (existingData.hasCompleteData) {
-      console.log('Data already exists in database, returning cached data')
+      console.log('[FETCH-KAGGLE-DATA] Data already exists in database, returning cached data')
       return new Response(
         JSON.stringify({
           success: true,
@@ -44,7 +49,7 @@ serve(async (req) => {
 
     // Calculate missing date ranges
     const missingRanges = await calculateMissingRanges(supabase, symbol, startDate, endDate)
-    console.log('Missing ranges to fetch:', missingRanges)
+    console.log('[FETCH-KAGGLE-DATA] Missing ranges to fetch:', missingRanges)
 
     let totalInserted = 0
     const maxDaysPerBatch = 30 // Limit to 30 days per batch to avoid timeouts
@@ -59,20 +64,20 @@ serve(async (req) => {
           const batchData = await generateRealisticTickData(symbol, batch.start, batch.end)
           const inserted = await insertDataInBatches(supabase, batchData)
           totalInserted += inserted
-          console.log(`Inserted ${inserted} records for batch ${batch.start} to ${batch.end}`)
+          console.log(`[FETCH-KAGGLE-DATA] Inserted ${inserted} records for batch ${batch.start} to ${batch.end}`)
         }
       } else {
         const rangeData = await generateRealisticTickData(symbol, range.startDate, range.endDate)
         const inserted = await insertDataInBatches(supabase, rangeData)
         totalInserted += inserted
-        console.log(`Inserted ${inserted} records for range ${range.startDate} to ${range.endDate}`)
+        console.log(`[FETCH-KAGGLE-DATA] Inserted ${inserted} records for range ${range.startDate} to ${range.endDate}`)
       }
     }
 
     // Update available data ranges
     await updateAvailableDataRanges(supabase, symbol, startDate, endDate, totalInserted)
 
-    console.log(`Successfully processed and stored ${totalInserted} records`)
+    console.log(`[FETCH-KAGGLE-DATA] Successfully processed and stored ${totalInserted} records`)
 
     return new Response(
       JSON.stringify({
@@ -89,7 +94,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in fetch-kaggle-data function:', error)
+    console.error('[FETCH-KAGGLE-DATA] Function error:', error)
     return new Response(
       JSON.stringify({
         error: `Erro ao processar dados: ${error.message}`,
@@ -110,12 +115,12 @@ async function checkExistingData(supabase: any, symbol: string, startDate: strin
       .from('tick_data')
       .select('timestamp')
       .eq('symbol', symbol)
-      .gte('timestamp', startDate)
+      .gte('timestamp', startDate + 'T00:00:00.000Z')
       .lte('timestamp', endDate + 'T23:59:59.999Z')
       .order('timestamp', { ascending: true })
 
     if (error) {
-      console.error('Error checking existing data:', error)
+      console.error('[CHECK-EXISTING-DATA] Error:', error)
       return { hasCompleteData: false, count: 0 }
     }
 
@@ -126,11 +131,11 @@ async function checkExistingData(supabase: any, symbol: string, startDate: strin
     // Consider complete if we have at least 80% of expected data
     const hasCompleteData = count >= (expectedRecords * 0.8)
     
-    console.log(`Existing data check: ${count} records found, expected ~${expectedRecords}, complete: ${hasCompleteData}`)
+    console.log(`[CHECK-EXISTING-DATA] ${count} records found, expected ~${expectedRecords}, complete: ${hasCompleteData}`)
     
     return { hasCompleteData, count }
   } catch (error) {
-    console.error('Error in checkExistingData:', error)
+    console.error('[CHECK-EXISTING-DATA] Error:', error)
     return { hasCompleteData: false, count: 0 }
   }
 }
@@ -138,10 +143,9 @@ async function checkExistingData(supabase: any, symbol: string, startDate: strin
 async function calculateMissingRanges(supabase: any, symbol: string, startDate: string, endDate: string) {
   try {
     // For now, return the full range as missing if we don't have complete data
-    // In a more sophisticated implementation, we would identify specific missing date ranges
     return [{ startDate, endDate }]
   } catch (error) {
-    console.error('Error calculating missing ranges:', error)
+    console.error('[CALCULATE-MISSING-RANGES] Error:', error)
     return [{ startDate, endDate }]
   }
 }
@@ -184,13 +188,13 @@ async function insertDataInBatches(supabase: any, tickData: any[]) {
         .insert(batch)
 
       if (error) {
-        console.error('Error inserting batch:', error)
+        console.error('[INSERT-BATCH] Error:', error)
         continue // Continue with next batch instead of failing completely
       }
 
       totalInserted += batch.length
     } catch (batchError) {
-      console.error('Batch insertion error:', batchError)
+      console.error('[INSERT-BATCH] Exception:', batchError)
       continue
     }
   }
@@ -213,20 +217,19 @@ async function updateAvailableDataRanges(supabase: any, symbol: string, startDat
       })
 
     if (error) {
-      console.error('Error updating available data ranges:', error)
+      console.error('[UPDATE-AVAILABLE-DATA-RANGES] Error:', error)
     }
   } catch (error) {
-    console.error('Error in updateAvailableDataRanges:', error)
+    console.error('[UPDATE-AVAILABLE-DATA-RANGES] Exception:', error)
   }
 }
 
 async function generateRealisticTickData(symbol: string, startDate: string, endDate: string) {
-  console.log(`Generating realistic data for ${symbol} from ${startDate} to ${endDate}`)
+  console.log(`[GENERATE-REALISTIC-DATA] Generating data for ${symbol} from ${startDate} to ${endDate}`)
   
   const tickData = []
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  end.setHours(23, 59, 59, 999) // Include the full end date
+  const start = new Date(startDate + 'T00:00:00.000Z')
+  const end = new Date(endDate + 'T23:59:59.999Z')
   
   let currentTime = new Date(start)
   let lastPrice = getStartingPrice(symbol)
@@ -234,7 +237,7 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
   // Generate data every 5 minutes
   while (currentTime <= end) {
     const volatility = getVolatility(symbol)
-    const timeOfDay = currentTime.getHours()
+    const timeOfDay = currentTime.getUTCHours()
     
     // Add market session volatility
     let sessionMultiplier = 1
@@ -242,14 +245,21 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
       sessionMultiplier = 1.5
     }
     
+    // Add realistic market patterns
     const trendFactor = Math.sin(currentTime.getTime() / (1000 * 60 * 60 * 24)) * 0.001
     const randomChange = (Math.random() - 0.5) * volatility * sessionMultiplier
     const change = trendFactor + randomChange
     
+    // Add occasional larger moves (news events simulation)
+    if (Math.random() < 0.01) { // 1% chance
+      const newsImpact = (Math.random() - 0.5) * volatility * 5
+      randomChange + newsImpact
+    }
+    
     const newPrice = lastPrice * (1 + change)
     const spread = lastPrice * 0.0001
-    const high = Math.max(lastPrice, newPrice) + spread
-    const low = Math.min(lastPrice, newPrice) - spread
+    const high = Math.max(lastPrice, newPrice) + spread * Math.random()
+    const low = Math.min(lastPrice, newPrice) - spread * Math.random()
     
     const tick = {
       symbol,
@@ -268,7 +278,7 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
     currentTime.setMinutes(currentTime.getMinutes() + 5)
   }
 
-  console.log(`Generated ${tickData.length} tick records`)
+  console.log(`[GENERATE-REALISTIC-DATA] Generated ${tickData.length} tick records`)
   return tickData
 }
 
