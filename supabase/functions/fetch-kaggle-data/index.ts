@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
@@ -234,6 +233,10 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
   let currentTime = new Date(start)
   let lastPrice = getStartingPrice(symbol)
   
+  // ✅ CONTROLE DE REVERSÃO DE TENDÊNCIA
+  let consecutiveUps = 0
+  let consecutiveDowns = 0
+  
   // Generate data every 5 minutes
   while (currentTime <= end) {
     const volatility = getVolatility(symbol)
@@ -245,28 +248,60 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
       sessionMultiplier = 1.5
     }
     
-    // Add realistic market patterns
-    const trendFactor = Math.sin(currentTime.getTime() / (1000 * 60 * 60 * 24)) * 0.001
+    // ✅ TREND FACTOR MAIS FORTE (aumentei de 0.001 para 0.005)
+    const trendFactor = Math.sin(currentTime.getTime() / (1000 * 60 * 60 * 24)) * 0.005
     const randomChange = (Math.random() - 0.5) * volatility * sessionMultiplier
-    const change = trendFactor + randomChange
+    let change = trendFactor + randomChange
     
-    // Add occasional larger moves (news events simulation)
+    // ✅ CORREÇÃO DO BUG DO NEWS IMPACT
     if (Math.random() < 0.01) { // 1% chance
       const newsImpact = (Math.random() - 0.5) * volatility * 5
-      randomChange + newsImpact
+      change += newsImpact  // <- APLICAR O IMPACTO DE FATO
+    }
+    
+    // ✅ CONTROLE DE TENDÊNCIA CONSECUTIVA
+    if (change > 0) {
+      consecutiveUps++
+      consecutiveDowns = 0
+    } else {
+      consecutiveDowns++
+      consecutiveUps = 0
+    }
+    
+    // ✅ FORÇA REVERSÃO SE SUBIR POR MAIS DE 8 CANDLES
+    if (consecutiveUps >= 8) {
+      change *= -1.5  // Força uma queda mais forte
+      consecutiveUps = 0
+      console.log(`[TREND-CONTROL] Forçando reversão de alta para baixa após 8 candles consecutivos`)
+    }
+    
+    // ✅ FORÇA REVERSÃO SE DESCER POR MAIS DE 8 CANDLES
+    if (consecutiveDowns >= 8) {
+      change = Math.abs(change) * 1.5  // Força uma alta mais forte
+      consecutiveDowns = 0
+      console.log(`[TREND-CONTROL] Forçando reversão de baixa para alta após 8 candles consecutivos`)
     }
     
     const newPrice = lastPrice * (1 + change)
     const spread = lastPrice * 0.0001
-    const high = Math.max(lastPrice, newPrice) + spread * Math.random()
-    const low = Math.min(lastPrice, newPrice) - spread * Math.random()
+    
+    // ✅ MELHORIA NO CÁLCULO DE HIGH/LOW - mais realista
+    const priceRange = Math.abs(newPrice - lastPrice)
+    const extraVolatility = priceRange * (0.3 + Math.random() * 0.7)
+    
+    const high = Math.max(lastPrice, newPrice) + extraVolatility
+    const low = Math.min(lastPrice, newPrice) - extraVolatility * 0.8
+    
+    // ✅ GARANTIR QUE HIGH >= MAX(OPEN, CLOSE) e LOW <= MIN(OPEN, CLOSE)
+    const finalHigh = Math.max(high, lastPrice, newPrice)
+    const finalLow = Math.min(low, lastPrice, newPrice)
     
     const tick = {
       symbol,
       timestamp: currentTime.toISOString(),
       open: parseFloat(lastPrice.toFixed(5)),
-      high: parseFloat(high.toFixed(5)),
-      low: parseFloat(low.toFixed(5)),
+      high: parseFloat(finalHigh.toFixed(5)),
+      low: parseFloat(finalLow.toFixed(5)),
       close: parseFloat(newPrice.toFixed(5)),
       volume: Math.floor(Math.random() * 500) + 50
     }
@@ -278,7 +313,9 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
     currentTime.setMinutes(currentTime.getMinutes() + 5)
   }
 
-  console.log(`[GENERATE-REALISTIC-DATA] Generated ${tickData.length} tick records`)
+  console.log(`[GENERATE-REALISTIC-DATA] Generated ${tickData.length} tick records with trend control`)
+  console.log(`[GENERATE-REALISTIC-DATA] Final price movement: ${getStartingPrice(symbol).toFixed(2)} -> ${lastPrice.toFixed(2)}`)
+  
   return tickData
 }
 
