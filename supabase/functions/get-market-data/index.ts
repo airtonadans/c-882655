@@ -189,24 +189,50 @@ function aggregateDataByTimeframe(data: any[], timeframe: string) {
     // Sort group by timestamp to ensure proper OHLC calculation
     group.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-    // Calculate OHLCV for this interval
-    const open = parseFloat(group[0].open?.toString() || group[0].close?.toString() || '0')
-    const close = parseFloat(group[group.length - 1].close?.toString() || group[group.length - 1].open?.toString() || '0')
+    // ✅ AGREGAÇÃO CORRETA E CONSERVADORA
+    const firstTick = group[0]
+    const lastTick = group[group.length - 1]
     
-    // Get all price values to calculate high and low
-    const allPrices: number[] = []
+    const open = parseFloat(firstTick.open?.toString() || firstTick.close?.toString() || '0')
+    const close = parseFloat(lastTick.close?.toString() || lastTick.open?.toString() || '0')
+    
+    // ✅ HIGH/LOW REALISTAS - pegar apenas de open/close de cada tick
+    const allOpenClosePrices: number[] = []
     group.forEach(tick => {
-      const prices = [
-        parseFloat(tick.open?.toString() || '0'),
-        parseFloat(tick.high?.toString() || '0'),
-        parseFloat(tick.low?.toString() || '0'),
-        parseFloat(tick.close?.toString() || '0')
-      ].filter(p => p > 0)
-      allPrices.push(...prices)
+      const tickOpen = parseFloat(tick.open?.toString() || '0')
+      const tickClose = parseFloat(tick.close?.toString() || '0')
+      if (tickOpen > 0) allOpenClosePrices.push(tickOpen)
+      if (tickClose > 0) allOpenClosePrices.push(tickClose)
+      
+      // ✅ INCLUIR HIGH/LOW APENAS SE FOREM REALISTAS
+      const tickHigh = parseFloat(tick.high?.toString() || '0')
+      const tickLow = parseFloat(tick.low?.toString() || '0')
+      
+      // Validar se high/low são realistas (dentro de 5% do open/close do tick)
+      const tickRange = Math.abs(tickClose - tickOpen)
+      const maxRealisticRange = Math.max(tickOpen, tickClose) * 0.05  // 5% máximo
+      
+      if (tickHigh > 0 && tickHigh <= Math.max(tickOpen, tickClose) + maxRealisticRange) {
+        allOpenClosePrices.push(tickHigh)
+      }
+      if (tickLow > 0 && tickLow >= Math.min(tickOpen, tickClose) - maxRealisticRange) {
+        allOpenClosePrices.push(tickLow)
+      }
     })
     
-    const high = allPrices.length > 0 ? Math.max(...allPrices) : open
-    const low = allPrices.length > 0 ? Math.min(...allPrices) : open
+    // Usar apenas preços validados
+    const high = allOpenClosePrices.length > 0 ? Math.max(...allOpenClosePrices) : Math.max(open, close)
+    const low = allOpenClosePrices.length > 0 ? Math.min(...allOpenClosePrices) : Math.min(open, close)
+    
+    // ✅ VALIDAÇÃO FINAL DA LÓGICA OHLC
+    const finalHigh = Math.max(high, open, close)
+    const finalLow = Math.min(low, open, close)
+    
+    // Verificar se os dados fazem sentido
+    if (finalHigh < Math.max(open, close) || finalLow > Math.min(open, close)) {
+      console.error(`[AGGREGATE-VALIDATION] OHLC inválido: O=${open} H=${finalHigh} L=${finalLow} C=${close}`)
+    }
+    
     const volume = group.reduce((sum, tick) => sum + (parseInt(tick.volume?.toString() || '0')), 0)
 
     // Create ISO timestamp for the interval start
@@ -216,11 +242,20 @@ function aggregateDataByTimeframe(data: any[], timeframe: string) {
       symbol: group[0].symbol,
       timestamp: intervalTimestamp,
       open: open,
-      high: high,
-      low: low,
+      high: finalHigh,
+      low: finalLow,
       close: close,
       volume: volume,
       tickCount: group.length
+    }
+
+    // ✅ VALIDAÇÃO FINAL ANTES DE ADICIONAR
+    const priceRange = Math.abs(close - open)
+    const wickRange = (finalHigh - finalLow) - priceRange
+    const wickPercentage = priceRange > 0 ? (wickRange / priceRange) * 100 : 0
+    
+    if (wickPercentage > 200) {  // Se wick for mais de 200% do corpo do candle
+      console.warn(`[AGGREGATE-VALIDATION] Wick muito grande detectado: ${wickPercentage.toFixed(1)}% para candle ${intervalTimestamp}`)
     }
 
     aggregatedCandles.push(aggregatedCandle)
@@ -229,16 +264,19 @@ function aggregateDataByTimeframe(data: any[], timeframe: string) {
   console.log(`[AGGREGATE-DATA] Created ${aggregatedCandles.length} aggregated candles`)
   
   if (aggregatedCandles.length > 0) {
+    const sample = aggregatedCandles[0]
     console.log(`[AGGREGATE-DATA] Sample aggregated candle:`, {
-      timestamp: aggregatedCandles[0].timestamp,
+      timestamp: sample.timestamp,
       ohlc: {
-        open: aggregatedCandles[0].open,
-        high: aggregatedCandles[0].high,
-        low: aggregatedCandles[0].low,
-        close: aggregatedCandles[0].close
+        open: sample.open,
+        high: sample.high,
+        low: sample.low,
+        close: sample.close
       },
-      volume: aggregatedCandles[0].volume,
-      tickCount: aggregatedCandles[0].tickCount
+      volume: sample.volume,
+      tickCount: sample.tickCount,
+      priceRange: Math.abs(sample.close - sample.open),
+      wickSize: (sample.high - sample.low) - Math.abs(sample.close - sample.open)
     })
   }
 

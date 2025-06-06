@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
@@ -233,7 +234,7 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
   let currentTime = new Date(start)
   let lastPrice = getStartingPrice(symbol)
   
-  // ✅ CONTROLE DE REVERSÃO DE TENDÊNCIA
+  // ✅ CONTROLE DE REVERSÃO DE TENDÊNCIA MAIS RIGOROSO
   let consecutiveUps = 0
   let consecutiveDowns = 0
   
@@ -242,24 +243,24 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
     const volatility = getVolatility(symbol)
     const timeOfDay = currentTime.getUTCHours()
     
-    // Add market session volatility
+    // Add market session volatility (mais conservador)
     let sessionMultiplier = 1
     if (timeOfDay >= 8 && timeOfDay <= 17) {
-      sessionMultiplier = 1.5
+      sessionMultiplier = 1.2  // Reduzido de 1.5 para 1.2
     }
     
-    // ✅ TREND FACTOR MAIS FORTE (aumentei de 0.001 para 0.005)
-    const trendFactor = Math.sin(currentTime.getTime() / (1000 * 60 * 60 * 24)) * 0.005
+    // ✅ TREND FACTOR MAIS CONSERVADOR (reduzido de 0.005 para 0.002)
+    const trendFactor = Math.sin(currentTime.getTime() / (1000 * 60 * 60 * 24)) * 0.002
     const randomChange = (Math.random() - 0.5) * volatility * sessionMultiplier
     let change = trendFactor + randomChange
     
-    // ✅ CORREÇÃO DO BUG DO NEWS IMPACT
-    if (Math.random() < 0.01) { // 1% chance
-      const newsImpact = (Math.random() - 0.5) * volatility * 5
-      change += newsImpact  // <- APLICAR O IMPACTO DE FATO
+    // ✅ NEWS IMPACT MAIS CONSERVADOR
+    if (Math.random() < 0.005) { // Reduzido de 1% para 0.5%
+      const newsImpact = (Math.random() - 0.5) * volatility * 2  // Reduzido de 5x para 2x
+      change += newsImpact
     }
     
-    // ✅ CONTROLE DE TENDÊNCIA CONSECUTIVA
+    // ✅ CONTROLE DE TENDÊNCIA MAIS RIGOROSO (5 candles em vez de 8)
     if (change > 0) {
       consecutiveUps++
       consecutiveDowns = 0
@@ -268,42 +269,68 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
       consecutiveUps = 0
     }
     
-    // ✅ FORÇA REVERSÃO SE SUBIR POR MAIS DE 8 CANDLES
-    if (consecutiveUps >= 8) {
-      change *= -1.5  // Força uma queda mais forte
+    // ✅ FORÇA REVERSÃO SE SUBIR POR MAIS DE 5 CANDLES
+    if (consecutiveUps >= 5) {
+      change = -Math.abs(change) * 1.2  // Força queda moderada
       consecutiveUps = 0
-      console.log(`[TREND-CONTROL] Forçando reversão de alta para baixa após 8 candles consecutivos`)
+      console.log(`[TREND-CONTROL] Forçando reversão de alta após 5 candles`)
     }
     
-    // ✅ FORÇA REVERSÃO SE DESCER POR MAIS DE 8 CANDLES
-    if (consecutiveDowns >= 8) {
-      change = Math.abs(change) * 1.5  // Força uma alta mais forte
+    // ✅ FORÇA REVERSÃO SE DESCER POR MAIS DE 5 CANDLES
+    if (consecutiveDowns >= 5) {
+      change = Math.abs(change) * 1.2  // Força alta moderada
       consecutiveDowns = 0
-      console.log(`[TREND-CONTROL] Forçando reversão de baixa para alta após 8 candles consecutivos`)
+      console.log(`[TREND-CONTROL] Forçando reversão de baixa após 5 candles`)
+    }
+    
+    // ✅ LIMITAR MUDANÇAS EXTREMAS (máximo 2% por candle)
+    const maxChange = 0.02  // 2%
+    if (Math.abs(change) > maxChange) {
+      change = change > 0 ? maxChange : -maxChange
+      console.log(`[PRICE-CONTROL] Limitando mudança extrema para ${(change * 100).toFixed(2)}%`)
     }
     
     const newPrice = lastPrice * (1 + change)
-    const spread = lastPrice * 0.0001
     
-    // ✅ MELHORIA NO CÁLCULO DE HIGH/LOW - mais realista
-    const priceRange = Math.abs(newPrice - lastPrice)
-    const extraVolatility = priceRange * (0.3 + Math.random() * 0.7)
+    // ✅ CÁLCULO REALISTA DE HIGH/LOW (muito mais conservador)
+    const priceMovement = Math.abs(newPrice - lastPrice)
+    const wickRange = priceMovement * (0.1 + Math.random() * 0.3)  // Máximo 40% de wick
     
-    const high = Math.max(lastPrice, newPrice) + extraVolatility
-    const low = Math.min(lastPrice, newPrice) - extraVolatility * 0.8
+    // Determinar high e low baseado na direção do movimento
+    let high, low
+    if (newPrice > lastPrice) {
+      // Candle de alta
+      high = newPrice + wickRange * 0.5  // Wick pequeno acima
+      low = lastPrice - wickRange * 0.3   // Wick pequeno abaixo
+    } else {
+      // Candle de baixa
+      high = lastPrice + wickRange * 0.3  // Wick pequeno acima
+      low = newPrice - wickRange * 0.5    // Wick pequeno abaixo
+    }
     
-    // ✅ GARANTIR QUE HIGH >= MAX(OPEN, CLOSE) e LOW <= MIN(OPEN, CLOSE)
-    const finalHigh = Math.max(high, lastPrice, newPrice)
-    const finalLow = Math.min(low, lastPrice, newPrice)
+    // ✅ GARANTIR LÓGICA OHLC CORRETA
+    const finalOpen = parseFloat(lastPrice.toFixed(5))
+    const finalClose = parseFloat(newPrice.toFixed(5))
+    const finalHigh = parseFloat(Math.max(high, finalOpen, finalClose).toFixed(5))
+    const finalLow = parseFloat(Math.min(low, finalOpen, finalClose).toFixed(5))
+    
+    // ✅ VALIDAÇÃO FINAL DOS DADOS
+    if (finalHigh < Math.max(finalOpen, finalClose) || finalLow > Math.min(finalOpen, finalClose)) {
+      console.error(`[DATA-VALIDATION] OHLC inválido detectado: O=${finalOpen} H=${finalHigh} L=${finalLow} C=${finalClose}`)
+      // Corrigir automaticamente
+      const correctedHigh = Math.max(finalHigh, finalOpen, finalClose)
+      const correctedLow = Math.min(finalLow, finalOpen, finalClose)
+      console.log(`[DATA-VALIDATION] Corrigido para: H=${correctedHigh} L=${correctedLow}`)
+    }
     
     const tick = {
       symbol,
       timestamp: currentTime.toISOString(),
-      open: parseFloat(lastPrice.toFixed(5)),
-      high: parseFloat(finalHigh.toFixed(5)),
-      low: parseFloat(finalLow.toFixed(5)),
-      close: parseFloat(newPrice.toFixed(5)),
-      volume: Math.floor(Math.random() * 500) + 50
+      open: finalOpen,
+      high: finalHigh,
+      low: finalLow,
+      close: finalClose,
+      volume: Math.floor(Math.random() * 500) + 100  // Volume entre 100-600
     }
 
     tickData.push(tick)
@@ -313,8 +340,9 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
     currentTime.setMinutes(currentTime.getMinutes() + 5)
   }
 
-  console.log(`[GENERATE-REALISTIC-DATA] Generated ${tickData.length} tick records with trend control`)
-  console.log(`[GENERATE-REALISTIC-DATA] Final price movement: ${getStartingPrice(symbol).toFixed(2)} -> ${lastPrice.toFixed(2)}`)
+  const priceChange = ((lastPrice - getStartingPrice(symbol)) / getStartingPrice(symbol)) * 100
+  console.log(`[GENERATE-REALISTIC-DATA] Generated ${tickData.length} tick records`)
+  console.log(`[GENERATE-REALISTIC-DATA] Price movement: ${getStartingPrice(symbol).toFixed(2)} -> ${lastPrice.toFixed(2)} (${priceChange.toFixed(2)}%)`)
   
   return tickData
 }
@@ -322,25 +350,25 @@ async function generateRealisticTickData(symbol: string, startDate: string, endD
 function getStartingPrice(symbol: string): number {
   switch (symbol) {
     case 'XAUUSD':
-      return 2000.0 + (Math.random() * 100)
+      return 2000.0 + (Math.random() * 50)  // Reduzido de 100 para 50
     case 'BTCUSD':
-      return 45000.0 + (Math.random() * 5000)
+      return 45000.0 + (Math.random() * 2000)  // Reduzido de 5000 para 2000
     case 'EURUSD':
-      return 1.08 + (Math.random() * 0.05)
+      return 1.08 + (Math.random() * 0.02)  // Reduzido de 0.05 para 0.02
     default:
-      return 2000.0 + (Math.random() * 100)
+      return 2000.0 + (Math.random() * 50)
   }
 }
 
 function getVolatility(symbol: string): number {
   switch (symbol) {
     case 'XAUUSD':
-      return 0.002
+      return 0.001  // Reduzido de 0.002 para 0.001
     case 'BTCUSD':
-      return 0.02
+      return 0.015  // Reduzido de 0.02 para 0.015
     case 'EURUSD':
-      return 0.001
+      return 0.0008  // Reduzido de 0.001 para 0.0008
     default:
-      return 0.002
+      return 0.001
   }
 }
