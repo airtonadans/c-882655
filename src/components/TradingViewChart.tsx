@@ -55,8 +55,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       },
     });
 
-    // Use the correct method name for lightweight-charts v5
-    const candlestickSeries = chart.addCandlestickSeries({
+    // Use the correct API method for lightweight-charts v5
+    const candlestickSeries = chart.addSeries('Candlestick', {
       upColor: '#22c55e',
       downColor: '#ef4444',
       borderDownColor: '#ef4444',

@@ -107,41 +107,38 @@ const CryptoStrategySimulator = () => {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6">
-            <TabsList className="grid grid-cols-5 bg-gray-800 border border-gray-700 p-1 w-full max-w-3xl">
+            <TabsList className="grid grid-cols-4 bg-gray-800 border border-gray-700 p-1 w-full max-w-4xl">
               <TabsTrigger 
                 value="data"
-                className="flex items-center gap-2 data-[state=active]:bg-red-500 data-[state=active]:text-white text-gray-300"
+                className="flex items-center gap-2 data-[state=active]:bg-red-500 data-[state=active]:text-white text-gray-300 text-sm px-2 py-2"
               >
                 <Database className="w-4 h-4" />
-                Auditoria
+                <span className="hidden sm:inline">Auditoria</span>
+                <span className="sm:hidden">Dados</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="replay" 
-                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
+                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300 text-sm px-2 py-2"
               >
                 <Play className="w-4 h-4" />
-                Replay
+                <span className="hidden sm:inline">Replay</span>
+                <span className="sm:hidden">Play</span>
               </TabsTrigger>
               <TabsTrigger 
-                value="history"
-                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
-              >
-                <History className="w-4 h-4" />
-                Histórico
-              </TabsTrigger>
-              <TabsTrigger 
-                value="advanced"
-                className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white text-gray-300"
+                value="backtest"
+                className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white text-gray-300 text-sm px-2 py-2"
               >
                 <Cpu className="w-4 h-4" />
-                Sistema Avançado
+                <span className="hidden sm:inline">Backtest</span>
+                <span className="sm:hidden">Test</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="manager"
-                className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black text-gray-300"
+                className="flex items-center gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white text-gray-300 text-sm px-2 py-2"
               >
                 <Database className="w-4 h-4" />
-                Dados
+                <span className="hidden sm:inline">Gerenciar</span>
+                <span className="sm:hidden">Ger.</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -234,55 +231,7 @@ const CryptoStrategySimulator = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="history" className="space-y-6">
-            {/* Modo Histórico - Período completo sem controles */}
-            <Card className="p-4 bg-gray-900 border-gray-700">
-              <div className="flex items-center gap-2 mb-4">
-                <History className="w-5 h-5 text-blue-500" />
-                <h2 className="text-lg font-semibold text-white">Modo Histórico</h2>
-                <Badge className="bg-purple-600 text-white text-xs">
-                  TradingView Professional
-                </Badge>
-              </div>
-              <p className="text-sm text-gray-400 mb-4">
-                Visualize o gráfico completo de um período específico com renderização profissional.
-              </p>
-              
-              <HistoryModeControls
-                onLoadHistory={handleLoadHistory}
-                isLoading={historyLoading}
-                totalCandles={historyState.totalCandles}
-              />
-            </Card>
-
-            {/* Gráfico do Histórico com TradingView */}
-            {historyState.isLoaded && (
-              <ProfessionalTradingChart
-                data={historyState.data}
-                currentIndex={historyState.data.length - 1}
-                currentCandle={historyState.data[historyState.data.length - 1]}
-                isActive={true}
-              />
-            )}
-
-            {/* Placeholder quando não há dados */}
-            {!historyState.isLoaded && !historyLoading && (
-              <Card className="p-8 bg-gray-900 border-gray-700 text-center">
-                <History className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  Gráfico Histórico Profissional
-                </h3>
-                <p className="text-gray-400 mb-6">
-                  Selecione um período acima para carregar o gráfico histórico com renderização TradingView.
-                </p>
-                <Badge variant="secondary" className="bg-gray-700 text-gray-300">
-                  Aguardando Período
-                </Badge>
-              </Card>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="advanced" className="space-y-6">
+          <TabsContent value="backtest" className="space-y-6">
             <AdvancedTradingSystem />
           </TabsContent>
           
