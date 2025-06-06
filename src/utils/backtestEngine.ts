@@ -310,6 +310,10 @@ export class SMAStrategy extends TradingStrategy {
     return { action: 'hold', price: 0, quantity: 0, confidence: 0, reason: 'No signal' };
   }
 
+  onTrade(trade: Trade): void {
+    console.log(`SMA Strategy - Trade executed: ${trade.type} at ${trade.openPrice}, P&L: ${trade.pnl || 'pending'}`);
+  }
+
   private calculateSMA(candles: CandleData[]): number {
     const sum = candles.reduce((total, candle) => total + candle.close, 0);
     return sum / candles.length;
