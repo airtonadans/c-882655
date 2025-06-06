@@ -55,6 +55,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       },
     });
 
+    // Fix: Use correct method name
     const candlestickSeries = chart.addCandlestickSeries({
       upColor: '#22c55e',
       downColor: '#ef4444',

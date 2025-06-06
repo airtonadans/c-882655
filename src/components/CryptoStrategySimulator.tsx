@@ -1,16 +1,16 @@
-
 import React, { useState } from 'react';
 import ProfessionalTradingChart from './ProfessionalTradingChart';
 import ReplayModeControls from './ReplayModeControls';
 import HistoryModeControls from './HistoryModeControls';
 import DataSourceManager from './DataSourceManager';
 import DataAuditPanel from './DataAuditPanel';
+import AdvancedTradingSystem from './AdvancedTradingSystem';
 import { useReplayData } from '../hooks/useReplayData';
 import { useHistoryData } from '../hooks/useHistoryData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Activity, BarChart3, Database, History, Play } from 'lucide-react';
+import { TrendingUp, Activity, BarChart3, Database, History, Play, Cpu } from 'lucide-react';
 import { toast } from 'sonner';
 
 export interface Trade {
@@ -107,7 +107,7 @@ const CryptoStrategySimulator = () => {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-6">
-            <TabsList className="grid grid-cols-4 bg-gray-800 border border-gray-700 p-1 w-full max-w-2xl">
+            <TabsList className="grid grid-cols-5 bg-gray-800 border border-gray-700 p-1 w-full max-w-3xl">
               <TabsTrigger 
                 value="data"
                 className="flex items-center gap-2 data-[state=active]:bg-red-500 data-[state=active]:text-white text-gray-300"
@@ -128,6 +128,13 @@ const CryptoStrategySimulator = () => {
               >
                 <History className="w-4 h-4" />
                 Histórico
+              </TabsTrigger>
+              <TabsTrigger 
+                value="advanced"
+                className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white text-gray-300"
+              >
+                <Cpu className="w-4 h-4" />
+                Sistema Avançado
               </TabsTrigger>
               <TabsTrigger 
                 value="manager"
@@ -273,6 +280,10 @@ const CryptoStrategySimulator = () => {
                 </Badge>
               </Card>
             )}
+          </TabsContent>
+          
+          <TabsContent value="advanced" className="space-y-6">
+            <AdvancedTradingSystem />
           </TabsContent>
           
           <TabsContent value="manager" className="space-y-6">
