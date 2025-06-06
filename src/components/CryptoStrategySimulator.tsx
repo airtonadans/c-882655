@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import ProfessionalCandleChart from './ProfessionalCandleChart';
+import ProfessionalTradingChart from './ProfessionalTradingChart';
 import ReplayModeControls from './ReplayModeControls';
 import HistoryModeControls from './HistoryModeControls';
 import DataSourceManager from './DataSourceManager';
@@ -31,7 +31,7 @@ export interface SimulationData {
 }
 
 const CryptoStrategySimulator = () => {
-  const [activeTab, setActiveTab] = useState('data'); // Start with data tab for audit
+  const [activeTab, setActiveTab] = useState('data');
   
   // Replay mode hooks
   const {
@@ -85,18 +85,18 @@ const CryptoStrategySimulator = () => {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-white">
-                  Trading Simulator
+                  Trading Simulator Pro
                 </h1>
                 <p className="text-xs text-gray-400">
-                  Sistema Profissional de Análise XAUUSD
+                  Sistema Profissional com TradingView Charts
                 </p>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
-              <Badge className="text-xs bg-red-600 text-white">
+              <Badge className="text-xs bg-green-600 text-white">
                 <Database className="w-3 h-3 mr-1" />
-                Em Auditoria
+                TradingView Enabled
               </Badge>
             </div>
           </div>
@@ -150,11 +150,11 @@ const CryptoStrategySimulator = () => {
                 <Play className="w-5 h-5 text-yellow-500" />
                 <h2 className="text-lg font-semibold text-white">Modo Replay</h2>
                 <Badge className="bg-blue-600 text-white text-xs">
-                  Data Específica
+                  TradingView Professional
                 </Badge>
               </div>
               <p className="text-sm text-gray-400 mb-4">
-                Selecione uma data específica e acompanhe a evolução dos preços em tempo acelerado.
+                Selecione uma data específica e acompanhe a evolução dos preços em tempo acelerado com gráficos profissionais.
               </p>
               
               <ReplayModeControls
@@ -173,8 +173,8 @@ const CryptoStrategySimulator = () => {
               />
             </Card>
 
-            {/* Gráfico do Replay */}
-            <ProfessionalCandleChart
+            {/* Gráfico do Replay com TradingView */}
+            <ProfessionalTradingChart
               data={replayState.data}
               currentIndex={replayState.currentIndex}
               currentCandle={replayState.currentCandle}
@@ -234,11 +234,11 @@ const CryptoStrategySimulator = () => {
                 <History className="w-5 h-5 text-blue-500" />
                 <h2 className="text-lg font-semibold text-white">Modo Histórico</h2>
                 <Badge className="bg-purple-600 text-white text-xs">
-                  Período Completo
+                  TradingView Professional
                 </Badge>
               </div>
               <p className="text-sm text-gray-400 mb-4">
-                Visualize o gráfico completo de um período específico sem animação.
+                Visualize o gráfico completo de um período específico com renderização profissional.
               </p>
               
               <HistoryModeControls
@@ -248,9 +248,9 @@ const CryptoStrategySimulator = () => {
               />
             </Card>
 
-            {/* Gráfico do Histórico */}
+            {/* Gráfico do Histórico com TradingView */}
             {historyState.isLoaded && (
-              <ProfessionalCandleChart
+              <ProfessionalTradingChart
                 data={historyState.data}
                 currentIndex={historyState.data.length - 1}
                 currentCandle={historyState.data[historyState.data.length - 1]}
@@ -263,10 +263,10 @@ const CryptoStrategySimulator = () => {
               <Card className="p-8 bg-gray-900 border-gray-700 text-center">
                 <History className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">
-                  Gráfico Histórico
+                  Gráfico Histórico Profissional
                 </h3>
                 <p className="text-gray-400 mb-6">
-                  Selecione um período acima para carregar o gráfico histórico completo.
+                  Selecione um período acima para carregar o gráfico histórico com renderização TradingView.
                 </p>
                 <Badge variant="secondary" className="bg-gray-700 text-gray-300">
                   Aguardando Período
@@ -281,11 +281,11 @@ const CryptoStrategySimulator = () => {
                 <Database className="w-5 h-5 text-green-500" />
                 <h2 className="text-lg font-semibold text-white">Gerenciamento de Dados</h2>
                 <Badge className="bg-green-600 text-white text-xs">
-                  Fonte: Kaggle API
+                  Fonte: Dados Realistas
                 </Badge>
               </div>
               <p className="text-sm text-gray-400 mb-4">
-                Configure e gerencie os dados de mercado para análise.
+                Configure e gerencie os dados de mercado para análise profissional.
               </p>
             </Card>
             
