@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { useRealMarketData } from './useRealMarketData';
 import { CandleData } from '../utils/advancedMarketGenerator';
@@ -35,13 +34,8 @@ export const useHistoryData = () => {
       
       console.log(`Loading ${diffDays} days of historical data`);
       
-      const data = await getMarketData({
-        symbol: 'XAUUSD',
-        timeframe,
-        startDate,
-        endDate,
-        limit: 10000
-      });
+      // Ajuste aqui! O hook não recebe params mais; retorna mock.
+      const data = await getMarketData();
 
       console.log(`Received ${data.length} records for history view`);
 

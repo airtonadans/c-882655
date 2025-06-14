@@ -1,8 +1,22 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Target, Activity } from 'lucide-react';
 import { SimulationData } from './CryptoStrategySimulator';
+
+interface Trade {
+  id: string;
+  type: 'buy' | 'sell';
+  price: number;
+  profit?: number;
+}
+
+interface SimulationData {
+  totalOperations: number;
+  successRate: number;
+  totalPnL: number;
+  finalBalance: number;
+  trades: Trade[];
+}
 
 interface SimulationStatsProps {
   data: SimulationData;

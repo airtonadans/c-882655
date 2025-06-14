@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Download, Database, AlertCircle, CheckCircle, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,11 +37,7 @@ const DataSourceManager: React.FC = () => {
     }
 
     try {
-      await fetchKaggleData({
-        symbol: 'XAUUSD',
-        startDate,
-        endDate
-      });
+      await fetchKaggleData();
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
     }

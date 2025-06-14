@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,13 +42,7 @@ const AdvancedTradingSystem: React.FC = () => {
   // Carregar dados de teste
   const loadTestData = async () => {
     try {
-      const data = await getMarketData({
-        symbol: 'XAUUSD',
-        startDate: '2024-01-09',
-        endDate: '2024-01-09',
-        timeframe: '5min',
-        limit: 100
-      });
+      const data = await getMarketData(); // sem argumentos
 
       if (data.length === 0) {
         toast.error('Nenhum dado encontrado. Carregue dados primeiro na aba "Dados".');

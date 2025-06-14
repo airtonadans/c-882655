@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Trade } from './CryptoStrategySimulator';
 import { CandleData } from '../utils/advancedMarketGenerator';
@@ -10,6 +9,13 @@ interface TradingChartProps {
   trades: Trade[];
   replayMode?: boolean;
   onCandleUpdate?: (callback: (candle: CandleData) => void) => void;
+}
+
+interface Trade {
+  id: string;
+  type: 'buy' | 'sell';
+  price: number;
+  profit?: number;
 }
 
 const TradingChart: React.FC<TradingChartProps> = ({ 

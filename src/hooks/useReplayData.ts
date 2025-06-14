@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRealMarketData } from './useRealMarketData';
 import { CandleData } from '../utils/advancedMarketGenerator';
@@ -33,18 +32,7 @@ export const useReplayData = () => {
     console.log('Loading replay data for date:', date, 'timeframe:', timeframe);
     
     try {
-      const startDate = date;
-      const endDate = date;
-      
-      console.log(`Fetching replay data from ${startDate} to ${endDate}`);
-      
-      const data = await getMarketData({
-        symbol: 'XAUUSD',
-        timeframe,
-        startDate,
-        endDate,
-        limit: 500
-      });
+      const data = await getMarketData();
 
       console.log(`Received ${data.length} records for replay`);
 

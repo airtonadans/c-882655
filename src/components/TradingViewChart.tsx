@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, IChartApi, ISeriesApi, CandlestickData, Time } from 'lightweight-charts';
 import { CandleData } from '../utils/advancedMarketGenerator';
@@ -55,8 +54,10 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       },
     });
 
-    // Use the correct API method for lightweight-charts
-    const candlestickSeries = chart.addCandlestickSeries({
+    // ALTERAÇÃO: método correto para lightweight-charts v5.x:
+    // candlestickSeries = chart.addSeries('Candlestick', { ... });
+    // https://tradingview.github.io/lightweight-charts/docs/api/interfaces/IChartApi#addseries
+    const candlestickSeries = chart.addSeries('Candlestick', {
       upColor: '#22c55e',
       downColor: '#ef4444',
       borderDownColor: '#ef4444',
