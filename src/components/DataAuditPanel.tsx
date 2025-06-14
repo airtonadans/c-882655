@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,13 +21,7 @@ const DataAuditPanel = () => {
     try {
       console.log('🔍 [AUDIT] Starting comprehensive data audit...');
       
-      const data = await getMarketData({
-        symbol: 'XAUUSD',
-        timeframe: selectedTimeframe,
-        startDate: selectedDate,
-        endDate: selectedDate,
-        limit: 500
-      });
+      const data = await getMarketData();
 
       if (!data || data.length === 0) {
         setAuditResult({

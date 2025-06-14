@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,12 +51,7 @@ const RealDataControls: React.FC<RealDataControlsProps> = ({ onDataLoaded }) => 
       return;
     }
 
-    const data = await getMarketData({
-      symbol: rangeToUse.symbol,
-      startDate: rangeToUse.start_date,
-      endDate: rangeToUse.end_date,
-      limit: 1000
-    });
+    const data = await getMarketData();
 
     if (data.length > 0) {
       onDataLoaded(data);
