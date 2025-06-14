@@ -9,7 +9,108 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      available_data_ranges: {
+        Row: {
+          end_date: string
+          id: string
+          last_updated: string
+          start_date: string
+          symbol: string
+          total_ticks: number | null
+        }
+        Insert: {
+          end_date: string
+          id?: string
+          last_updated?: string
+          start_date: string
+          symbol?: string
+          total_ticks?: number | null
+        }
+        Update: {
+          end_date?: string
+          id?: string
+          last_updated?: string
+          start_date?: string
+          symbol?: string
+          total_ticks?: number | null
+        }
+        Relationships: []
+      }
+      candlestick_data: {
+        Row: {
+          close: number
+          created_at: string
+          high: number
+          id: string
+          low: number
+          open: number
+          symbol: string
+          timeframe: string
+          timestamp: string
+          volume: number | null
+        }
+        Insert: {
+          close: number
+          created_at?: string
+          high: number
+          id?: string
+          low: number
+          open: number
+          symbol?: string
+          timeframe: string
+          timestamp: string
+          volume?: number | null
+        }
+        Update: {
+          close?: number
+          created_at?: string
+          high?: number
+          id?: string
+          low?: number
+          open?: number
+          symbol?: string
+          timeframe?: string
+          timestamp?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
+      tick_data: {
+        Row: {
+          close: number
+          created_at: string
+          high: number
+          id: string
+          low: number
+          open: number
+          symbol: string
+          timestamp: string
+          volume: number | null
+        }
+        Insert: {
+          close: number
+          created_at?: string
+          high: number
+          id?: string
+          low: number
+          open: number
+          symbol?: string
+          timestamp: string
+          volume?: number | null
+        }
+        Update: {
+          close?: number
+          created_at?: string
+          high?: number
+          id?: string
+          low?: number
+          open?: number
+          symbol?: string
+          timestamp?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
